@@ -432,6 +432,12 @@ def index():
         return HTMLResponse(content=content)
     return HTMLResponse("<h1>Agentic OS</h1><p>Dashboard not built yet. Run <code>./install.sh</code> first.</p>")
 
+# ─── Favicon ──────────────────────────────────────────────────────
+
+@app.get("/favicon.ico")
+def favicon():
+    return HTMLResponse("")
+
 # ─── Main ─────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

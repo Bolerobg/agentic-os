@@ -1,9 +1,11 @@
 const pageCache = {};
 
+const PAGE_BASE = '/dashboard/pages/';
+
 async function loadPage(name) {
   if (pageCache[name]) return pageCache[name];
   try {
-    await loadScript(`pages/${name}.js`);
+    await loadScript(`${PAGE_BASE}${name}.js`);
     pageCache[name] = true;
   } catch (err) {
     console.error(`Failed to load page: ${name}`, err);
