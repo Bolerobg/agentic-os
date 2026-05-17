@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Agentic OS — APScheduler engine for recurring tasks"""
+import json
+import subprocess
+import sys
+from pathlib import Path
+from datetime import datetime, timezone
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+except ImportError:
+    print("Install APScheduler: pip install apscheduler")
+    sys.exit(1)
+
+BASE_DIR = Path(__file__).parent.resolve()
+JOBS_DIR = BASE_DIR / "jobs"
+
+def run_skill(skill_name: str):
+    """Execute a skill by invoking the appropriate agent."""
+    audit_file = BASE_DIR.parent / "audit" / "audit.log"
+    entry = {
+        "action": "scheduler_run",
+        "skill": skill_name,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    with open(audit_file, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    print(f"[{datetime.now().isoformat()}] Ran skill: {skill_name}")
+
+def load_jobs(scheduler: BackgroundScheduler):
+    """Load job definitions from jobs/ directory."""
+    for job_file in JOBS_DIR.glob("*.json"):
+        data = json.loads(job_file.read_text())
+        if not data.get("enabled", True):
+            continue
+        scheduler.add_job(
+            run_skill,
+            CronTrigger.from_crontab(data["cron"]),
+            args=[data["skill"]],
+            id=data.get("id", data["name"]),
+            name=data["name"],
+            replace_existing=True,
+        )
+        print(f"  Scheduled: {data['name']} ({data['cron']})")
+
+def main():
+    scheduler = BackgroundScheduler()
+    load_jobs(scheduler)
+    scheduler.start()
+    print(f"Agentic OS Scheduler running. Jobs loaded from: {JOBS_DIR}")
+    try:
+        while True:
+            import time
+            time.sleep(60)
+    except KeyboardInterrupt:
+        scheduler.shutdown()
+        print("Scheduler stopped.")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic OS</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav id="sidebar" class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">Agentic OS</span>
+    </div>
+    <button class="sidebar-toggle" onclick="toggleSidebar()">≡</button>
+  </div>
+  <div class="sidebar-nav" id="sidebarNav">
+    <a href="#dashboard" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <span class="nav-icon">◉</span> Dashboard
+    </a>
+    <a href="#skills" class="nav-item" data-page="skills" onclick="navigate('skills')">
+      <span class="nav-icon">⚡</span> Skills
+    </a>
+    <a href="#memory" class="nav-item" data-page="memory" onclick="navigate('memory')">
+      <span class="nav-icon">🧠</span> Memory
+    </a>
+    <a href="#scheduler" class="nav-item" data-page="scheduler" onclick="navigate('scheduler')">
+      <span class="nav-icon">⏱</span> Scheduler
+    </a>
+    <a href="#audit" class="nav-item" data-page="audit" onclick="navigate('audit')">
+      <span class="nav-icon">📋</span> Audit
+    </a>
+    <a href="#cost" class="nav-item" data-page="cost" onclick="navigate('cost')">
+      <span class="nav-icon">💰</span> Cost Analytics
+    </a>
+    <a href="#plugins" class="nav-item" data-page="plugins" onclick="navigate('plugins')">
+      <span class="nav-icon">🔌</span> Plugins
+    </a>
+    <a href="#backups" class="nav-item" data-page="backups" onclick="navigate('backups')">
+      <span class="nav-icon">💾</span> Backups
+    </a>
+    <a href="#prompts" class="nav-item" data-page="prompts" onclick="navigate('prompts')">
+      <span class="nav-icon">📝</span> Prompts
+    </a>
+    <a href="#standards" class="nav-item" data-page="standards" onclick="navigate('standards')">
+      <span class="nav-icon">📐</span> Standards
+    </a>
+    <a href="#settings" class="nav-item" data-page="settings" onclick="navigate('settings')">
+      <span class="nav-icon">⚙</span> Settings
+    </a>
+  </div>
+  <div class="sidebar-footer">
+    <div class="agent-status" id="agentStatus">
+      <div class="status-dot offline"></div>
+      <span>Loading...</span>
+    </div>
+    <div class="theme-toggle">
+      <button onclick="toggleTheme()" title="Toggle theme">🌓</button>
+    </div>
+  </div>
+</nav>
+
+<main id="mainContent" class="main-content">
+  <div id="pageContent" class="page-content">
+    <div class="loading">Loading Agentic OS...</div>
+  </div>
+</main>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="utils.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "id": "daily-standup-default",
+  "name": "Daily Standup",
+  "skill": "daily-standup",
+  "cron": "0 7 * * 1-5",
+  "enabled": true,
+  "created": "2026-05-17T00:00:00Z",
+  "last_run": null,
+  "next_run": null,
+  "description": "Morning standup weekdays at 7 AM"
+}
