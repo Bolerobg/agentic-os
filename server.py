@@ -16,13 +16,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-app = FastAPI(title="Agentic OS", version="1.1.0")
+_scheduler_instance = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _scheduler_instance
+    try:
+        from scheduler.scheduler import CronScheduler
+        _scheduler_instance = CronScheduler()
+        _scheduler_instance.start()
+        print("Event-driven scheduler started")
+    except Exception as e:
+        print(f"Scheduler not available: {e}")
+    yield
+    if _scheduler_instance:
+        try:
+            _scheduler_instance.stop()
+        except Exception:
+            pass
+
+app = FastAPI(title="Agentic OS", version="1.1.0", lifespan=lifespan)
 
 # Load OpenRouter API key from Hermes .env
 HERMES_ENV = Path.home() / ".hermes" / ".env"
@@ -84,7 +105,7 @@ def write_file(path: Path, content: str):
 def list_dir(path: Path):
     if not path.exists():
         return []
-    return sorted([p.name for p in path.iterdir() if not p.name.startswith(".")])
+    return sorted([p.name for p in path.iterdir() if not p.name.startswith(".") and p.is_file()])
 
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat()
@@ -192,10 +213,13 @@ def get_status():
 
 @app.get("/api/brain")
 def list_brain():
-    files = list_dir(BASE_DIR / "brain")
+    brain_dir = BASE_DIR / "brain"
+    if not brain_dir.exists():
+        return {}
+    files = sorted([p.name for p in brain_dir.iterdir() if p.name.endswith(".md") and p.is_file()])
     brain_data = {}
     for f in files:
-        path = BASE_DIR / "brain" / f
+        path = brain_dir / f
         brain_data[f] = read_file(path)
     return brain_data
 
@@ -751,13 +775,19 @@ def discover_standards():
 CHAT_HISTORY_FILE = BASE_DIR / "data" / "chat-history.json"
 
 def load_chat_history():
-    if CHAT_HISTORY_FILE.exists():
-        return json.loads(CHAT_HISTORY_FILE.read_text())
+    if not CHAT_HISTORY_FILE.exists():
+        return {"messages": []}
+    try:
+        data = json.loads(CHAT_HISTORY_FILE.read_text())
+        if isinstance(data, dict) and "messages" in data:
+            return data
+    except (json.JSONDecodeError, TypeError):
+        pass
     return {"messages": []}
 
 def save_chat_message(msg: dict):
     history = load_chat_history()
-    history["messages"].append(msg)
+    history.setdefault("messages", []).append(msg)
     if len(history["messages"]) > 200:
         history["messages"] = history["messages"][-200:]
     CHAT_HISTORY_FILE.write_text(json.dumps(history, indent=2))
@@ -836,23 +866,23 @@ def execute_agent(agent: str, message: str) -> str:
 
         elif agent == "gemini":
             for attempt, (args, to) in enumerate([
-                (["-y", "-m", "gemini-2.5-flash"], 60),
-                (["-y"], 40),
+                (["-y", "-m", "gemini-2.5-flash"], 30),
+                (["-y"], 30),
             ]):
                 try:
                     code, out, err = run_cli(["gemini", *args, message], timeout=to)
                 except subprocess.TimeoutExpired:
                     if attempt == 0:
                         continue
-                    return f"⏱ Gemini timed out.\n\nTry running `gemini \"{message[:60]}\"` directly.\n\n**Message:** {message[:100]}"
+                    return f"**Gemini CLI timed out.**\n\nTry running `gemini \"{message[:60]}\"` directly."
+                combined = ((err or "") + " " + (out or "")).strip()
                 if code == 0:
                     return (out or "").strip() or f"**Gemini CLI**\n\nProcessed your query.\n\n**Message:** {message}"
-                err_msg = (err or "").strip()
-                if attempt == 0 and ("model" in err_msg.lower() or "not found" in err_msg.lower()):
+                if attempt == 0 and ("model" in combined.lower() or "not found" in combined.lower()):
                     continue
-                if "auth" in err_msg.lower() or "login" in err_msg.lower():
-                    return f"**Gemini needs re-auth**\n\nRun `gemini auth login` to re-authenticate.\n\n**Details:** {err_msg[:200]}"
-                return err_msg or f"gemini returned exit code {code}"
+                if "auth" in combined.lower() or "login" in combined.lower() or "Please set an Auth" in combined:
+                    return f"**Gemini needs auth**\n\nRun `gemini auth login` to authenticate.\n\n**Details:** {combined[:200]}"
+                return combined or f"gemini returned exit code {code}"
             return "Gemini CLI did not return a response."
 
         else:
@@ -874,18 +904,17 @@ def chat(req: ChatRequest):
         raise HTTPException(400, "Message cannot be empty")
     if len(message) > 10000:
         raise HTTPException(400, "Message too long (max 10000 characters)")
-    req.message = message
 
     user_msg = {
         "id": str(uuid.uuid4())[:8],
         "role": "user",
         "agent": agent,
-        "content": req.message,
+        "content": message,
         "timestamp": get_timestamp(),
     }
     save_chat_message(user_msg)
 
-    response_text = execute_agent(agent, req.message)
+    response_text = execute_agent(agent, message)
 
     agent_msg = {
         "id": str(uuid.uuid4())[:8],
@@ -896,7 +925,7 @@ def chat(req: ChatRequest):
     }
     save_chat_message(agent_msg)
 
-    append_audit({"action": "chat_message", "agent": agent, "msg_preview": req.message[:50]})
+    append_audit({"action": "chat_message", "agent": agent, "msg_preview": message[:50]})
 
     return {"status": "ok", "response": agent_msg}
 
@@ -1517,30 +1546,6 @@ def favicon():
 @app.get("/favicon.svg")
 def favicon_svg():
     return Response(content=FAVICON_SVG, media_type="image/svg+xml")
-
-# ─── Scheduler Auto-Start (v0.3.0) ─────────────────────────────────
-
-_scheduler_instance = None
-
-@app.on_event("startup")
-def start_scheduler():
-    global _scheduler_instance
-    try:
-        from scheduler.scheduler import CronScheduler
-        _scheduler_instance = CronScheduler()
-        _scheduler_instance.start()
-        print("Event-driven scheduler started")
-    except Exception as e:
-        print(f"Scheduler not available: {e}")
-
-@app.on_event("shutdown")
-def stop_scheduler():
-    global _scheduler_instance
-    if _scheduler_instance:
-        try:
-            _scheduler_instance.stop()
-        except Exception:
-            pass
 
 # ─── PWA Support (v0.3.0) ──────────────────────────────────────────
 
