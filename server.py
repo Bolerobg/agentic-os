@@ -1057,66 +1057,16 @@ def clean_hermes_output(raw: str) -> str:
 def execute_agent(agent: str, message: str) -> str:
     try:
         if agent == "opencode":
-            try:
-                code, out, err = run_cli(["opencode", "run", "--format", "json", message], timeout=30)
-            except subprocess.TimeoutExpired:
-                return f"⏱ Agent 'opencode' timed out.\n\nOpenCode's model is taking too long. Try running `opencode run \"{message[:60]}\"` directly in your terminal.\n\n**Message:** {message[:100]}"
-            if code == 0:
-                response_text = ""
-                for line in (out or "").split('\n'):
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        event = json.loads(line)
-                        if event.get("type") == "text":
-                            text = event.get("part", {}).get("text", "")
-                            if text:
-                                response_text += text + "\n"
-                    except (json.JSONDecodeError, KeyError):
-                        continue
-                if response_text:
-                    return response_text.strip()
-                return f"**opencode**\n\nProcessed your message.\n\n**Message:** {message[:100]}"
-            err_msg = (err or "").strip()
-            return err_msg or f"opencode returned exit code {code}"
+            # Use DeepSeek API directly for opencode agent
+            return call_llm([{"role": "user", "content": message}], provider="deepseek")
 
         elif agent == "hermes":
-            try:
-                code, out, err = run_cli(["hermes", "chat", "-q", message], timeout=180)
-            except subprocess.TimeoutExpired:
-                return f"⏱ Hermes timed out.\n\nThe model took too long to respond. Try a shorter query or check your OpenRouter rate limits.\n\n**Message:** {message[:100]}"
-            if code == 0:
-                cleaned = clean_hermes_output(out or "")
-                if cleaned:
-                    return cleaned
-                # Empty response from model - return useful fallback
-                return f"**Hermes**\n\nReceived your message but the model returned an empty response. Try rephrasing your query.\n\n**Message:** {message}"
-            err_msg = (err or "").strip()
-            if "invalid choice" in err_msg or "usage:" in err_msg:
-                return f"**Hermes needs setup**\n\nRun `hermes setup` or check your config.\n\n**Details:** {err_msg[:200]}"
-            return err_msg or f"hermes returned exit code {code}"
+            # Use OpenRouter API directly for Hermes agent
+            return call_llm([{"role": "user", "content": message}], provider="openrouter")
 
         elif agent == "gemini":
-            for attempt, (args, to) in enumerate([
-                (["-y", "-m", "gemini-2.5-flash"], 30),
-                (["-y"], 30),
-            ]):
-                try:
-                    code, out, err = run_cli(["gemini", *args, message], timeout=to)
-                except subprocess.TimeoutExpired:
-                    if attempt == 0:
-                        continue
-                    return f"**Gemini CLI timed out.**\n\nTry running `gemini \"{message[:60]}\"` directly."
-                combined = ((err or "") + " " + (out or "")).strip()
-                if code == 0:
-                    return (out or "").strip() or f"**Gemini CLI**\n\nProcessed your query.\n\n**Message:** {message}"
-                if attempt == 0 and ("model" in combined.lower() or "not found" in combined.lower()):
-                    continue
-                if "auth" in combined.lower() or "login" in combined.lower() or "Please set an Auth" in combined:
-                    return f"**Gemini needs auth**\n\nRun `gemini auth login` to authenticate.\n\n**Details:** {combined[:200]}"
-                return combined or f"gemini returned exit code {code}"
-            return "Gemini CLI did not return a response."
+            # Use Gemini API directly
+            return call_llm([{"role": "user", "content": message}], provider="gemini")
 
         elif agent == "jcode":
             code, out, err = run_cli(["node", "-e", f"console.log(JSON.stringify({{message:{json.dumps(message[:500])},timestamp:Date.now()}}))"], timeout=10)
