@@ -1208,6 +1208,32 @@ def update_dashboard_config(data: dict):
     _save_json(DASHBOARD_CFG,data)
     return {"status":"saved"}
 
+# Custom Task Templates
+CUSTOM_TEMPLATES_FILE = BASE_DIR / "data" / "custom-templates.json"
+
+@app.get("/api/tasks/templates/custom")
+def get_custom_templates_api():
+    return _load_json(CUSTOM_TEMPLATES_FILE, [])
+
+@app.post("/api/tasks/templates/custom")
+def add_custom_template_api(data: dict):
+    title = (data.get("title", "") or "").strip()
+    if not title: raise HTTPException(400, "Title required")
+    templates = _load_json(CUSTOM_TEMPLATES_FILE, [])
+    t = {"id": str(uuid.uuid4())[:8], "title": title, "description": data.get("description", ""),
+         "agent": data.get("agent", "opencode"), "priority": data.get("priority", "medium"),
+         "category": data.get("category", "custom")}
+    templates.append(t)
+    _save_json(CUSTOM_TEMPLATES_FILE, templates)
+    return t
+
+@app.delete("/api/tasks/templates/custom/{tid}")
+def delete_custom_template_api(tid: str):
+    templates = _load_json(CUSTOM_TEMPLATES_FILE, [])
+    templates = [t for t in templates if t["id"] != tid]
+    _save_json(CUSTOM_TEMPLATES_FILE, templates)
+    return {"status": "deleted"}
+
 
 # ─── Main ─────────────────────────────────────────────────────────
 @app.post("/api/webhook")

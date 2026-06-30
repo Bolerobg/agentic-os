@@ -124,12 +124,16 @@ async function showAddTask() {
 
 async function showTaskTemplates() {
   try {
-    const data = await api.getTaskTemplates();
-    const templates = data.templates || {};
+    const [builtinData, customData] = await Promise.all([
+      api.getTaskTemplates(),
+      api.getCustomTemplates().catch(() => []),
+    ]);
+    const templates = builtinData.templates || {};
+    const custom = Array.isArray(customData) ? customData : [];
     const entries = Object.entries(templates);
-    const catIcons = {code:"💻",devops:"🚀",maintenance:"🔧",research:"🧠",reporting:"📊",docs:"📝",optimization:"⚡"};
+    const catIcons = {code:"💻",devops:"🚀",maintenance:"🔧",research:"🧠",reporting:"📊",docs:"📝",optimization:"⚡",custom:"✨"};
     showModal('Task Templates', `
-      <div class="grid grid-2" style="gap:8px">
+      <div class="grid grid-2" style="gap:8px;margin-bottom:12px">
         ${entries.map(([key,t]) => `
           <div class="card" style="cursor:pointer;padding:12px" onclick="useTemplate('${key}')">
             <div class="flex items-center gap-2 mb-1">
@@ -144,9 +148,64 @@ async function showTaskTemplates() {
           </div>
         `).join('')}
       </div>
-    `, `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`);
+    `, `
+    <div class="section-title">✨ Your Custom Templates</div>
+    <div id="customTemplatesList">
+      ${custom.length === 0 ? '<div class="text-sm text-muted" style="padding:8px">No custom templates yet. Add one below.</div>' : custom.map(ct => `
+        <div class="flex items-center justify-between" style="padding:6px 0;border-bottom:1px solid var(--border)">
+          <div class="flex items-center gap-2">
+            <span>✨</span><strong style="font-size:12px">${escapeHtml(ct.title)}</strong>
+            <span class="badge badge-accent" style="font-size:8px">${ct.agent}</span>
+          </div>
+          <div class="flex gap-1">
+            <button class="btn btn-xs" onclick="closeModal();useCustomTemplate('${ct.id}')">▶</button>
+            <button class="btn btn-xs btn-danger" onclick="deleteCustomTemplate('${ct.id}')">✕</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="flex gap-2" style="margin-top:8px">
+      <input id="newTmplTitle" class="form-input" placeholder="Template title" style="flex:1;font-size:11px;height:28px">
+      <select id="newTmplAgent" class="form-select" style="width:100px;font-size:11px;height:28px">
+        <option value="opencode">opencode</option><option value="hermes">Hermes</option><option value="gemini">Gemini</option><option value="jcode">jcode</option>
+      </select>
+      <button class="btn btn-sm btn-primary" onclick="addCustomTemplate()">+ Add</button>
+    </div>
+    <button class="btn btn-ghost" onclick="closeModal()" style="margin-top:8px">Cancel</button>`);
   } catch (err) { showToast(err.message, 'error'); }
 }
+
+async function addCustomTemplate() {
+  const title = document.getElementById('newTmplTitle').value.trim();
+  const agent = document.getElementById('newTmplAgent').value;
+  if (!title) { showToast('Title required', 'warning'); return; }
+  try {
+    await api.addCustomTemplate({ title, agent, priority: 'medium', category: 'custom' });
+    showToast('Template added', 'success');
+    showTaskTemplates();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteCustomTemplate(id) {
+  if (!confirm('Delete this template?')) return;
+  try {
+    await api.deleteCustomTemplate(id);
+    showToast('Deleted', 'success');
+    showTaskTemplates();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+window.useCustomTemplate = async function(id) {
+  const templates = await api.getCustomTemplates();
+  const t = templates.find(x => x.id === id);
+  if (!t) return;
+  closeModal();
+  try {
+    await api.createTask({title:t.title, description:t.description||'', agent:t.agent, priority:t.priority});
+    showToast(`Task for ${t.agent} created`, 'success');
+    renderTaskQueue();
+  } catch(err) { showToast(err.message, 'error'); }
+};
 
 window.useTemplate = async function(key) {
   const data = await api.getTaskTemplates();

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "5b0e3b76",
+    "title": "Code Review",
+    "description": "Review code for bugs, security issues, improvements",
+    "agent": "gemini",
+    "priority": "medium",
+    "status": "pending",
+    "progress": 0,
+    "created": "2026-06-30T11:39:20.288150+00:00",
+    "started": null,
+    "completed": null,
+    "error": null
+  }
+]
