@@ -789,7 +789,10 @@ CRITICAL RULES:
     }
     if files_created:
         result["files_created"] = files_created
-        result["output_dir"] = str(output_dir.relative_to(BASE_DIR)) if output_dir else ""
+        try:
+            result["output_dir"] = str(output_dir.relative_to(BASE_DIR)) if output_dir else ""
+        except ValueError:
+            result["output_dir"] = str(output_dir) if output_dir else ""
         result["message"] += f" — {len(files_created)} files saved to skills/{name}/output/"
     return result
 
