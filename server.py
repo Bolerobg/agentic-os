@@ -1251,15 +1251,38 @@ async def chat_stream(data: dict):
     """Streaming chat via SSE with real-time token output."""
     agent = (data.get("agent", "") or "").lower().strip()
     message = (data.get("message", "") or "").strip()
+    project_path = (data.get("project", "") or "").strip()
     if not message:
         raise HTTPException(400, "Message required")
-    if len(message) > 10000:
-        raise HTTPException(400, "Message too long")
 
     provider_map = {"opencode": "deepseek", "hermes": "openrouter", "gemini": "gemini", "jcode": "deepseek"}
     provider = provider_map.get(agent, "deepseek") if agent in provider_map else (
         agent.replace("llm:", "") if agent.startswith("llm:") else "deepseek"
     )
+
+    # Build project context
+    project_context = ""
+    if project_path:
+        proj_dir = Path(project_path).resolve()
+        if proj_dir.exists():
+            files = []
+            try:
+                for p in sorted(proj_dir.iterdir()):
+                    if not p.name.startswith(".") and p.is_file():
+                        try:
+                            size = p.stat().st_size
+                            if size < 50000:
+                                files.append(f"  {p.name} ({size} bytes)")
+                        except:
+                            pass
+                project_context = f"\n\nWORKING DIRECTORY: {proj_dir}\nFiles:\n" + "\n".join(files[:30])
+            except:
+                pass
+
+    messages = []
+    if project_context:
+        messages.append({"role": "system", "content": f"You are working in the project directory: {project_context}. You can read files using /api/files/read and write using /api/files/write."})
+    messages.append({"role": "user", "content": message})
 
     user_msg = {"id": str(uuid.uuid4())[:8], "role": "user", "agent": agent, "content": message, "timestamp": get_timestamp()}
     save_chat_message(user_msg)
@@ -1269,12 +1292,12 @@ async def chat_stream(data: dict):
         yield f"data: {json.dumps({'type': 'start', 'agent': agent})}\n\n"
         try:
             if provider == "openrouter":
-                streamer = stream_openrouter([{"role": "user", "content": message}])
+                streamer = stream_openrouter(messages)
             elif provider == "gemini":
-                text = call_gemini([{"role": "user", "content": message}])
+                text = call_gemini(messages)
                 streamer = stream_gemini_chunks(text)
             else:
-                streamer = stream_deepseek([{"role": "user", "content": message}])
+                streamer = stream_deepseek(messages)
             for token in streamer:
                 if token:
                     full_response += token
@@ -1293,6 +1316,50 @@ async def chat_stream(data: dict):
 @app.get("/api/chat/history")
 def get_chat_history():
     return load_chat_history()
+
+# ─── Routes: Project Context & File Operations ───────────────────
+
+@app.get("/api/projects")
+def list_projects(path: str = Query("")):
+    base = Path(path) if path else BASE_DIR
+    base = base.resolve()
+    items = []
+    try:
+        for p in sorted(base.iterdir()):
+            if p.name.startswith("."):
+                continue
+            items.append({"name": p.name, "type": "dir" if p.is_dir() else "file", "size": p.stat().st_size if p.is_file() else 0})
+    except Exception as e:
+        return {"error": str(e), "items": [], "path": str(base)}
+    return {"items": items[:100], "path": str(base)}
+
+@app.post("/api/files/read")
+def read_file_api(data: dict):
+    filepath = (data.get("path", "") or "").strip()
+    if not filepath:
+        raise HTTPException(400, "Path required")
+    p = Path(filepath).resolve()
+    if not p.exists():
+        raise HTTPException(404, f"File not found: {filepath}")
+    if not p.is_file():
+        raise HTTPException(400, "Not a file")
+    try:
+        content = p.read_text(encoding="utf-8")
+        return {"path": str(p), "content": content, "size": len(content)}
+    except:
+        return {"path": str(p), "content": f"[Binary file: {p.stat().st_size} bytes]", "size": 0}
+
+@app.post("/api/files/write")
+def write_file_api(data: dict):
+    filepath = (data.get("path", "") or "").strip()
+    content = data.get("content", "")
+    if not filepath:
+        raise HTTPException(400, "Path required")
+    p = Path(filepath).resolve()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(content, encoding="utf-8")
+    append_audit({"action": "file_write", "path": str(p)})
+    return {"path": str(p), "size": len(content), "status": "saved"}
 
 # ═══════════════════════════════════════════════════════════════════
 # v0.2.0 — New Feature Endpoints

@@ -86,7 +86,13 @@ async function renderChat() {
           </div>
         </div>
         <div class="chat-input-area">
-          <div class="chat-agent-indicator" id="chatAgentIndicator">opencode</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div class="chat-agent-indicator" id="chatAgentIndicator">opencode</div>
+            <input type="text" id="projectPath" class="form-input" placeholder="📁 Project folder (optional)" 
+              style="flex:1;font-size:11px;padding:6px 10px;height:30px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)"
+              onchange="window._projectPath = this.value" onkeydown="if(event.key==='Enter'){document.getElementById('chatInput').focus()}">
+            <button class="btn btn-sm" onclick="browseProject()" style="height:30px;font-size:11px" title="Browse">📂</button>
+          </div>
           <textarea id="chatInput" class="chat-input" rows="1" placeholder="Type a message..." onkeydown="handleChatKey(event)"></textarea>
           <button class="btn btn-primary btn-icon" onclick="sendChatMessage()" id="chatSendBtn" title="Send">➤</button>
         </div>
@@ -152,6 +158,7 @@ async function sendChatMessage() {
   if (!message) return;
 
   const agent = window._currentAgent || 'opencode';
+  const project = document.getElementById('projectPath')?.value?.trim() || '';
   input.value = '';
   input.style.height = 'auto';
 
@@ -159,7 +166,7 @@ async function sendChatMessage() {
   const streamMsg = addChatMessage('assistant', '', agent, true);
 
   try {
-    const body = JSON.stringify({ agent, message });
+    const body = JSON.stringify({ agent, message, project });
     const resp = await fetch('/api/chat/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -290,7 +297,20 @@ function clearChat() {
   window._chatHistory = [];
 }
 
-function sendQuickPrompt(agent, message) {
+async function browseProject() {
+  const input = document.getElementById('projectPath');
+  const path = prompt('Enter project folder path:', input.value || '/Users/bolero/Documents');
+  if (path) {
+    input.value = path;
+    window._projectPath = path;
+    try {
+      const data = await api.getProjects ? api.getProjects(path) : fetch('/api/projects?path=' + encodeURIComponent(path)).then(r => r.json());
+      const files = (data.items || []).slice(0, 15).map(f => `${f.type === 'dir' ? '📁' : '📄'} ${f.name}`).join('\n');
+      if (files) showToast(`📂 ${data.path}\n${files}`, 'info');
+      else showToast('Empty folder or access denied', 'warning');
+    } catch { showToast('Cannot access folder', 'error'); }
+  }
+}
   selectAgent(agent);
   document.getElementById('chatInput').value = message;
   sendChatMessage();
