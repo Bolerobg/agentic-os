@@ -289,7 +289,7 @@ def call_gemini(messages: list, model: str = "gemini-2.5-pro", max_tokens: int =
     except Exception as e:
         return f"⚠ Gemini API error: {str(e)}"
 
-def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 4096) -> str:
+def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 128000) -> str:
     settings = _load_settings()
     llm_config = settings.get("llm", {})
     if not provider or provider == "default":
@@ -681,7 +681,7 @@ Execute the task below following the skill instructions exactly. Be thorough and
     ]
 
     try:
-        response_text = call_llm(messages, max_tokens=16000)
+        response_text = call_llm(messages, max_tokens=128000)
         agent_used = "llm"
     except Exception as e:
         response_text = f"⚠ LLM execution failed: {str(e)}"
