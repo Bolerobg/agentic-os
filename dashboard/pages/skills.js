@@ -360,7 +360,6 @@ if (!document.getElementById("skillProgressStyles")) {
       }
       r = { output: allOutput, agent: 'multi-step', run_id: 'ms-' + Date.now(), files_created: [], output_dir: outputPath, message: 'Multi-step completed' };
     } else {
-      window._skillRunning = true;
       window._skillProgressPct = 10; window._skillProgressLabel = 'Connecting...';
       addLog('Single-step mode', 'info');
       addLog('Prompt: ' + input.length + ' chars → DeepSeek', 'ai');
@@ -377,14 +376,11 @@ if (!document.getElementById("skillProgressStyles")) {
     }
     window._skillRunning = false;
     window._skillProgressPct = 100; window._skillProgressLabel = 'Complete';
-    if (r.files_created && r.files_created.length > 0) {
-      addLog(r.files_created.length + ' files saved to ' + (r.output_dir || 'output/'), 'file');
-      r.files_created.forEach(function(f) { addLog(f, 'file'); });
-    }
-    addLog('Done!', 'success');
+    addLog('Done! ✨', 'success');
     if (resultArea) {
+      // Append completion card after log, don't overwrite
       const outputText = r.output || '(no output)';
-      resultArea.innerHTML = `
+      resultArea.innerHTML += `
         <div class="card" style="margin-top:8px">
           <div class="card-header" style="border-color:var(--green-dim)">
             <span class="card-title" style="color:var(--green)">✓ Completed — ${r.agent} #${r.run_id}</span>
