@@ -155,47 +155,53 @@ async function sendChatMessage() {
   input.value = '';
   input.style.height = 'auto';
 
-  // Add user message to chat
   addChatMessage('user', message, agent);
-
-  // Show typing indicator
-  const typingId = showTypingIndicator(agent);
+  const streamMsg = addChatMessage('assistant', '', agent, true);
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 200000);
+    const body = JSON.stringify({ agent, message });
+    const resp = await fetch('/api/chat/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-    let r;
-    if (agent.startsWith('llm:')) {
-      const provider = agent.replace('llm:', '');
-      r = await api.chatLLM(message, provider, null, controller);
-    } else {
-      r = await api.chat(agent, message, controller);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === 'token' && streamMsg) {
+              streamMsg.element.querySelector('.chat-message-content').textContent += data.text;
+              streamMsg.element.querySelector('.chat-message-content').innerHTML = escapeHtml(
+                streamMsg.element.querySelector('.chat-message-content').textContent
+              );
+              document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+            }
+          } catch {}
+        }
+      }
     }
-
-    clearTimeout(timeoutId);
-
-    removeTypingIndicator(typingId);
-    const content = r.response ? r.response.content : (r.output || 'No response');
-    const responseAgent = r.response ? r.response.agent : agent;
-    addChatMessage('assistant', content, responseAgent);
-
-    window._chatHistory.push({ role: 'user', content: message, agent });
-    window._chatHistory.push({ role: 'assistant', content: content, agent: responseAgent });
   } catch (err) {
-    removeTypingIndicator(typingId);
-    const msg = err.name === 'AbortError' ? 'Request timed out after 200s' : err.message;
-    addChatMessage('assistant', `⚠ Error: ${msg}`, agent);
+    if (streamMsg) streamMsg.element.querySelector('.chat-message-content').textContent = '⚠ Error: ' + err.message;
   }
+
+  if (streamMsg) streamMsg.element.querySelector('.chat-message-content').classList.remove('streaming');
 }
 
-function addChatMessage(role, content, agent) {
+function addChatMessage(role, content, agent, streaming = false) {
   const container = document.getElementById('chatMessages');
   const welcome = container.querySelector('.chat-welcome');
   if (welcome) welcome.style.display = 'none';
 
   const msg = document.createElement('div');
-  msg.className = `chat-message ${role}`;
+  msg.className = `chat-message ${role}${streaming ? ' streaming' : ''}`;
   msg.innerHTML = `
     <div class="chat-message-avatar">${role === 'user' ? '👤' : '🤖'}</div>
     <div class="chat-message-body">
@@ -208,6 +214,7 @@ function addChatMessage(role, content, agent) {
   `;
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
+  return streaming ? { element: msg } : null;
 }
 
 function showTypingIndicator(agent) {

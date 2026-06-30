@@ -13,11 +13,12 @@ import subprocess
 import tarfile
 import time
 import uuid
+import http.client
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Generator
 
 try:
     import certifi
@@ -29,7 +30,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -304,6 +305,84 @@ def call_llm(messages: list, provider: str = "deepseek", model: str = None) -> s
         return call_gemini(messages, model=m)
     else:
         return f"⚠ Unknown provider: {provider}"
+
+# ─── Streaming LLM API ─────────────────────────────────────────────
+
+def _parse_sse_chunk(data: str) -> str:
+    """Parse SSE data line from DeepSeek/OpenRouter streaming response."""
+    for line in data.split('\n'):
+        line = line.strip()
+        if line.startswith('data: '):
+            content = line[6:]
+            if content == '[DONE]':
+                return None
+            try:
+                obj = json.loads(content)
+                return obj.get("choices", [{}])[0].get("delta", {}).get("content", "")
+            except:
+                return None
+    return None
+
+def stream_deepseek(messages: list, model: str = "deepseek-v4-pro") -> Generator[str, None, None]:
+    settings = _load_settings()
+    api_key = settings.get("api_keys", {}).get("deepseek", "")
+    if not api_key:
+        yield "⚠ DeepSeek API key not configured."
+        return
+    body = json.dumps({"model": model, "messages": messages, "max_tokens": 4096, "temperature": 0.7, "stream": True}).encode("utf-8")
+    try:
+        conn = http.client.HTTPSConnection("api.deepseek.com", context=SSL_CONTEXT, timeout=120)
+        conn.request("POST", "/v1/chat/completions", body=body, headers={
+            "Content-Type": "application/json", "Authorization": f"Bearer {api_key}"})
+        resp = conn.getresponse()
+        buffer = b""
+        while True:
+            chunk = resp.read(1024)
+            if not chunk:
+                break
+            buffer += chunk
+            while b'\n' in buffer:
+                line, buffer = buffer.split(b'\n', 1)
+                text = _parse_sse_chunk(line.decode("utf-8", errors="ignore"))
+                if text:
+                    yield text
+        conn.close()
+    except Exception as e:
+        yield f"\n⚠ Stream error: {str(e)}"
+
+def stream_openrouter(messages: list, model: str = "deepseek/deepseek-chat") -> Generator[str, None, None]:
+    settings = _load_settings()
+    api_key = settings.get("api_keys", {}).get("openrouter", "")
+    if not api_key:
+        yield "⚠ OpenRouter API key not configured."
+        return
+    body = json.dumps({"model": model, "messages": messages, "max_tokens": 4096, "temperature": 0.7, "stream": True}).encode("utf-8")
+    try:
+        conn = http.client.HTTPSConnection("openrouter.ai", context=SSL_CONTEXT, timeout=120)
+        conn.request("POST", "/api/v1/chat/completions", body=body, headers={
+            "Content-Type": "application/json", "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "http://127.0.0.1:8080", "X-Title": "Agentic OS"})
+        resp = conn.getresponse()
+        buffer = b""
+        while True:
+            chunk = resp.read(1024)
+            if not chunk:
+                break
+            buffer += chunk
+            while b'\n' in buffer:
+                line, buffer = buffer.split(b'\n', 1)
+                text = _parse_sse_chunk(line.decode("utf-8", errors="ignore"))
+                if text:
+                    yield text
+        conn.close()
+    except Exception as e:
+        yield f"\n⚠ Stream error: {str(e)}"
+
+def stream_gemini_chunks(text: str) -> Generator[str, None, None]:
+    """Simulate streaming for Gemini by yielding text word by word."""
+    words = text.split()
+    for i, w in enumerate(words):
+        yield w + (" " if i < len(words) - 1 else "")
 
 # ─── Agent Discovery (instant filesystem checks) ────────────────────
 
@@ -1069,14 +1148,10 @@ def execute_agent(agent: str, message: str) -> str:
             return call_llm([{"role": "user", "content": message}], provider="gemini")
 
         elif agent == "jcode":
-            code, out, err = run_cli(["node", "-e", f"console.log(JSON.stringify({{message:{json.dumps(message[:500])},timestamp:Date.now()}}))"], timeout=10)
-            if code == 0:
-                try:
-                    result = json.loads(out)
-                    return f"**jcode**\n\nExecuted your JavaScript task.\n\n**Status:** OK\n**Message processed:** {message[:100]}"
-                except:
-                    return f"**jcode**\n\nTask processed.\n\n**Message:** {message[:100]}"
-            return err.strip() or f"**jcode**\n\nTask processed. Exit code: {code}"
+            return call_llm([
+                {"role": "system", "content": "You are a JavaScript/Node.js expert. Help with JS, TypeScript, Node, npm, frontend frameworks. Respond concisely with code examples when relevant."},
+                {"role": "user", "content": message}
+            ], provider="deepseek")
 
         else:
             return f"Unknown agent: {agent}"
@@ -1170,6 +1245,50 @@ def chat_llm(data: dict):
         "provider": provider,
         "model": model or _load_settings().get("llm", {}).get(f"{provider}_model", provider),
     }
+
+@app.post("/api/chat/stream")
+async def chat_stream(data: dict):
+    """Streaming chat via SSE with real-time token output."""
+    agent = (data.get("agent", "") or "").lower().strip()
+    message = (data.get("message", "") or "").strip()
+    if not message:
+        raise HTTPException(400, "Message required")
+    if len(message) > 10000:
+        raise HTTPException(400, "Message too long")
+
+    provider_map = {"opencode": "deepseek", "hermes": "openrouter", "gemini": "gemini", "jcode": "deepseek"}
+    provider = provider_map.get(agent, "deepseek") if agent in provider_map else (
+        agent.replace("llm:", "") if agent.startswith("llm:") else "deepseek"
+    )
+
+    user_msg = {"id": str(uuid.uuid4())[:8], "role": "user", "agent": agent, "content": message, "timestamp": get_timestamp()}
+    save_chat_message(user_msg)
+
+    async def generate():
+        full_response = ""
+        yield f"data: {json.dumps({'type': 'start', 'agent': agent})}\n\n"
+        try:
+            if provider == "openrouter":
+                streamer = stream_openrouter([{"role": "user", "content": message}])
+            elif provider == "gemini":
+                text = call_gemini([{"role": "user", "content": message}])
+                streamer = stream_gemini_chunks(text)
+            else:
+                streamer = stream_deepseek([{"role": "user", "content": message}])
+            for token in streamer:
+                if token:
+                    full_response += token
+                    yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'text': ''})}\n\n"
+
+        agent_msg = {"id": str(uuid.uuid4())[:8], "role": "assistant", "agent": agent, "content": full_response, "timestamp": get_timestamp()}
+        save_chat_message(agent_msg)
+        append_audit({"action": "chat_stream", "agent": agent, "msg_preview": message[:50]})
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @app.get("/api/chat/history")
 def get_chat_history():
