@@ -66,9 +66,6 @@ async function renderChat() {
         </div>
         <div style="margin-top:auto;padding:12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">
           <div id="chatAgentStatus">opencode • ready</div>
-          <select id="chatModelSelect" class="form-select" style="margin-top:6px;font-size:10px;height:26px;padding:2px 6px" onchange="window._chatModel=this.value">
-            <option value="">Default model</option>
-          </select>
         </div>
       </div>
       <div class="chat-main">
@@ -96,6 +93,12 @@ async function renderChat() {
               onchange="window._projectPath = this.value" onkeydown="if(event.key==='Enter'){document.getElementById('chatInput').focus()}">
             <input type="file" id="nativeFolderPicker" webkitdirectory style="display:none" onchange="handleNativeFolderPick(event)">
             <button class="btn btn-sm" onclick="openFolderPicker()" style="height:30px;font-size:11px" title="Browse folders in Finder">📂 Browse</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span style="font-size:10px;color:var(--text-muted);white-space:nowrap">Model:</span>
+            <select id="chatModelSelect" class="form-select" style="flex:1;font-size:11px;height:28px;padding:2px 8px" onchange="window._chatModel=this.value">
+              <option value="">Default model</option>
+            </select>
           </div>
           <textarea id="chatInput" class="chat-input" rows="1" placeholder="Type a message..." onkeydown="handleChatKey(event)"></textarea>
           <button class="btn btn-primary btn-icon" onclick="sendChatMessage()" id="chatSendBtn" title="Send">➤</button>
