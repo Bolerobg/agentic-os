@@ -200,42 +200,40 @@ async function sendChatMessage() {
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
-    let leftover = '';
+    const tokenQueue = [];
+    let streaming = true;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      leftover += chunk;
-
-      // Process complete SSE lines
-      while (leftover.includes('\n')) {
-        const nl = leftover.indexOf('\n');
-        const line = leftover.slice(0, nl).trim();
-        leftover = leftover.slice(nl + 1);
-
-        if (line.startsWith('data: ')) {
-          const payload = line.slice(6);
-          if (payload === '[DONE]') continue;
-          try {
-            const data = JSON.parse(payload);
-            if (data.type === 'token' && data.text && contentEl) {
-              contentEl.textContent += data.text;
-              // Force browser paint by reading layout property
-              contentEl.scrollHeight;
-              const msgs = document.getElementById('chatMessages');
-              msgs.scrollTop = msgs.scrollHeight;
-              // Yield to browser renderer every 3 tokens
-              if (!sendChatMessage._tokens) sendChatMessage._tokens = 0;
-              sendChatMessage._tokens++;
-              if (sendChatMessage._tokens % 3 === 0) {
-                await new Promise(r => setTimeout(r, 0));
-              }
-            }
-          } catch {}
+    // Background reader: fills the queue as data arrives
+    (async () => {
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) { streaming = false; return; }
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const d = JSON.parse(line.slice(6));
+              if (d.type === 'token' && d.text) tokenQueue.push(d.text);
+            } catch {}
+          }
         }
       }
+    })();
+
+    // Foreground renderer: pulls from queue with animation-friendly timing
+    while (streaming || tokenQueue.length > 0) {
+      if (tokenQueue.length > 0) {
+        const batch = tokenQueue.splice(0, 3).join('');
+        if (contentEl) {
+          contentEl.textContent += batch;
+          const msgs = document.getElementById('chatMessages');
+          if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        }
+      }
+      await new Promise(r => setTimeout(r, 10)); // Let browser paint
     }
   } catch (err) {
     if (contentEl) contentEl.textContent = '⚠ ' + err.message;
