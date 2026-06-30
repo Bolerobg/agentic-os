@@ -144,4 +144,5 @@ const PAGE_TITLES = {
   'system-health': { title: 'System Health', breadcrumb: 'CPU, memory, disk & network monitoring' },
   'agent-comparison': { title: 'Agent Comparison', breadcrumb: 'A/B testing & side-by-side analysis' },
   reports: { title: 'Scheduled Reports', breadcrumb: 'Automated digests & summaries' },
+  github: { title: 'GitHub Manager', breadcrumb: 'Repos, commits, push — full git integration' },
 };

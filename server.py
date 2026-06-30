@@ -871,6 +871,8 @@ def get_settings():
     # Mask sensitive values
     if "api_keys" in data:
         data["api_keys"] = {k: v[:4] + "****" if len(v) > 8 else "****" for k, v in data["api_keys"].items()}
+    if "github" in data and "token" in data["github"]:
+        data["github"]["token"] = data["github"]["token"][:4] + "****"
     return data
 
 @app.put("/api/settings")
@@ -883,8 +885,237 @@ def update_settings(data: SettingsUpdate):
     append_audit({"action": "settings_updated"})
     return {"status": "ok"}
 
-# ─── Routes: Webhooks & Scheduler Events (v0.3.0) ─────────────────
 
+# ═══════════════════════════════════════════════════════════════════
+# GitHub Integration
+# ═══════════════════════════════════════════════════════════════════
+
+def _get_github_credentials():
+    settings = _load_json(BASE_DIR / "data" / "settings.json", {})
+    gh = settings.get("github", {})
+    return gh.get("username", ""), gh.get("token", "")
+
+def _github_api(path: str, method: str = "GET", body: dict = None) -> dict:
+    """Call GitHub REST API."""
+    username, token = _get_github_credentials()
+    if not token:
+        raise HTTPException(400, "GitHub token not configured. Add it in Settings.")
+    url = f"https://api.github.com{path}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Agentic-OS",
+    }
+    data = json.dumps(body).encode() if body else None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=SSL_CONTEXT) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        err = e.read().decode()[:300]
+        raise HTTPException(e.code, f"GitHub API error: {err}")
+
+@app.get("/api/github/status")
+def github_status():
+    """Check GitHub connection and return user info."""
+    try:
+        user = _github_api("/user")
+        return {
+            "connected": True,
+            "user": user.get("login", ""),
+            "name": user.get("name", ""),
+            "avatar": user.get("avatar_url", ""),
+            "repos_count": user.get("public_repos", 0),
+        }
+    except Exception as e:
+        return {"connected": False, "error": str(e)}
+
+@app.get("/api/github/repos")
+def github_list_repos():
+    """List user's repositories."""
+    username, _ = _get_github_credentials()
+    repos = _github_api("/user/repos?sort=updated&per_page=30&type=owner")
+    return [{
+        "name": r["name"],
+        "full_name": r["full_name"],
+        "private": r["private"],
+        "description": r.get("description", ""),
+        "url": r["html_url"],
+        "clone_url": r["clone_url"],
+        "updated": r["updated_at"],
+        "language": r.get("language", ""),
+    } for r in repos]
+
+@app.post("/api/github/create-repo")
+def github_create_repo(data: dict):
+    """Create a new GitHub repository."""
+    name = (data.get("name", "") or "").strip()
+    if not name:
+        raise HTTPException(400, "Repository name required")
+    description = data.get("description", "")
+    private = data.get("private", False)
+
+    repo = _github_api("/user/repos", "POST", {
+        "name": name,
+        "description": description,
+        "private": private,
+        "auto_init": False,
+    })
+    append_audit({"action": "github_repo_created", "repo": name})
+    return {
+        "name": repo["name"],
+        "full_name": repo["full_name"],
+        "url": repo["html_url"],
+        "clone_url": repo["clone_url"],
+    }
+
+@app.post("/api/github/init")
+def github_init_repo(data: dict):
+    """Initialize a git repo in a project folder and link to GitHub."""
+    project_path = (data.get("path", "") or "").strip()
+    repo_name = (data.get("name", "") or "").strip()
+    make_private = data.get("private", False)
+
+    if not project_path:
+        raise HTTPException(400, "Project path required")
+    if not repo_name:
+        repo_name = Path(project_path).name
+
+    proj = Path(project_path).resolve()
+    if not proj.exists():
+        raise HTTPException(400, f"Project folder not found: {project_path}")
+
+    # Check if already a git repo
+    if (proj / ".git").exists():
+        return {"status": "already_initialized", "path": str(proj), "message": "This folder is already a git repository"}
+
+    # Create GitHub repo
+    repo = _github_api("/user/repos", "POST", {
+        "name": repo_name,
+        "private": make_private,
+        "auto_init": False,
+    })
+
+    # Init git locally
+    username, token = _get_github_credentials()
+    clone_url = repo["clone_url"]
+    auth_url = clone_url.replace("https://", f"https://{username}:{token}@")
+
+    subprocess.run(["git", "init"], cwd=str(proj), capture_output=True, text=True)
+    subprocess.run(["git", "remote", "add", "origin", auth_url], cwd=str(proj), capture_output=True, text=True)
+
+    # Create .gitignore if not exists
+    gitignore = proj / ".gitignore"
+    if not gitignore.exists():
+        gitignore.write_text("__pycache__/\n*.pyc\n.env\nnode_modules/\ndata/\n*.db\n.DS_Store\n")
+
+    # Initial commit
+    subprocess.run(["git", "add", "-A"], cwd=str(proj), capture_output=True, text=True)
+    result = subprocess.run(["git", "commit", "-m", "Initial commit via Agentic OS"], cwd=str(proj), capture_output=True, text=True)
+
+    # Push
+    push = subprocess.run(["git", "push", "-u", "origin", "main"], cwd=str(proj), capture_output=True, text=True)
+
+    append_audit({"action": "github_init", "path": str(proj), "repo": repo_name})
+    return {
+        "status": "initialized",
+        "repo": repo["full_name"],
+        "url": repo["html_url"],
+        "path": str(proj),
+        "commit": result.stdout.strip() or result.stderr.strip(),
+        "push": push.stdout.strip() or push.stderr.strip(),
+    }
+
+@app.post("/api/github/commit")
+def github_commit(data: dict):
+    """Commit and push changes in a project."""
+    project_path = (data.get("path", "") or "").strip()
+    message = (data.get("message", "") or "Update via Agentic OS").strip()
+
+    if not project_path:
+        raise HTTPException(400, "Project path required")
+    proj = Path(project_path).resolve()
+    if not (proj / ".git").exists():
+        raise HTTPException(400, "Not a git repository. Initialize first.")
+
+    # Stage changes
+    files_to_add = data.get("files", [])
+    if files_to_add:
+        for f in files_to_add:
+            subprocess.run(["git", "add", f], cwd=str(proj), capture_output=True, text=True)
+    else:
+        subprocess.run(["git", "add", "-A"], cwd=str(proj), capture_output=True, text=True)
+
+    # Check if there are changes
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=str(proj), capture_output=True, text=True)
+    if not status.stdout.strip():
+        return {"status": "nothing_to_commit", "message": "No changes to commit"}
+
+    # Commit
+    result = subprocess.run(["git", "commit", "-m", message], cwd=str(proj), capture_output=True, text=True)
+
+    # Push
+    push = subprocess.run(["git", "push"], cwd=str(proj), capture_output=True, text=True)
+
+    append_audit({"action": "github_commit", "path": str(proj), "message": message})
+    return {
+        "status": "committed",
+        "commit": result.stdout.strip() or result.stderr.strip(),
+        "push": push.stdout.strip() or push.stderr.strip(),
+    }
+
+@app.post("/api/github/push")
+def github_push(data: dict):
+    """Push to remote."""
+    project_path = (data.get("path", "") or "").strip()
+    if not project_path:
+        raise HTTPException(400, "Project path required")
+    proj = Path(project_path).resolve()
+    if not (proj / ".git").exists():
+        raise HTTPException(400, "Not a git repository.")
+
+    push = subprocess.run(["git", "push"], cwd=str(proj), capture_output=True, text=True)
+    return {"status": "pushed", "output": push.stdout.strip() or push.stderr.strip()}
+
+@app.get("/api/github/project-info")
+def github_project_info(path: str = Query("")):
+    """Get git status of a project folder."""
+    if not path:
+        proj = BASE_DIR
+    else:
+        proj = Path(path).resolve()
+
+    if not (proj / ".git").exists():
+        return {"is_repo": False, "path": str(proj)}
+
+    # Get status
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=str(proj), capture_output=True, text=True)
+    changed = [l.strip() for l in status.stdout.strip().split("\n") if l.strip()]
+
+    # Get remote
+    remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=str(proj), capture_output=True, text=True)
+    remote_url = remote.stdout.strip()
+    # Clean token from URL
+    if "@" in remote_url:
+        remote_url = "https://github.com/" + remote_url.split("@github.com/")[-1] if "@github.com/" in remote_url else remote_url
+
+    # Get branch
+    branch = subprocess.run(["git", "branch", "--show-current"], cwd=str(proj), capture_output=True, text=True)
+
+    # Get last commit
+    last_commit = subprocess.run(["git", "log", "-1", "--format=%h %s (%ar)"], cwd=str(proj), capture_output=True, text=True)
+
+    return {
+        "is_repo": True,
+        "path": str(proj),
+        "branch": branch.stdout.strip(),
+        "remote": remote_url,
+        "changed_files": changed,
+        "changed_count": len(changed),
+        "last_commit": last_commit.stdout.strip(),
+    }
+
+# ─── Main ─────────────────────────────────────────────────────────
 @app.post("/api/webhook")
 def webhook_receiver(data: dict):
     """Generic webhook receiver — triggers skill execution by event type."""
