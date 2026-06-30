@@ -280,11 +280,31 @@ async function executeSkillRun(encodedName) {
   if (runBtn) { runBtn.disabled = true; runBtn.textContent = '⏳ Running...'; }
   if (resultArea) { resultArea.style.display = 'block'; resultArea.innerHTML = ''; }
 
+  // Log window helper
+  var logs = [];
+  function addLog(msg, type) {
+    var t = new Date().toLocaleTimeString();
+    logs.push({time: t, msg: msg, type: type || 'info'});
+    var colors = {info: 'var(--text-secondary)', success: 'var(--green)', error: 'var(--red)', ai: 'var(--accent-light)', file: 'var(--yellow)'};
+    var icons = {info: 'ℹ', success: '✓', error: '✕', ai: '🤖', file: '📁'};
+    var h = '<div class="card" style="padding:10px;margin-bottom:4px;border-color:var(--border)"><div style="font-family:var(--font-mono);font-size:10px;line-height:1.5;max-height:300px;overflow-y:auto" id="skillLogArea">';
+    for (var i = 0; i < logs.length; i++) {
+      h += '<div style="color:' + (colors[logs[i].type] || colors.info) + ';margin-bottom:1px">' + icons[logs[i].type] + ' <span style="color:var(--text-muted)">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
+    }
+    h += '</div></div>';
+    resultArea.innerHTML = h + (resultArea.innerHTML.indexOf('skillLogArea') === -1 ? resultArea.innerHTML.replace(/<div class="card".*?<\/div>/s, '') : '');
+    var logArea = document.getElementById('skillLogArea');
+    if (logArea) logArea.scrollTop = logArea.scrollHeight;
+  }
+
+  addLog('Starting skill execution...', 'info');
+  addLog('Agent: ' + (agent || 'auto'), 'info');
+
   try {
     let r;
     if (multiStep) {
-      // Step 0: Ask AI to split into subtasks
-      resultArea.innerHTML = '<div class="loading" style="padding:12px"><div class="loading-spinner"></div><span>🤖 AI planning steps...</span></div>';
+      addLog('Multi-step mode enabled', 'ai');
+      addLog('Splitting task into steps...', 'ai');
       const planRes = await api.aiGenerateSkill("Split this task into 3-4 logical steps. Task: " + input.slice(0, 500));
       // Extract steps from plan
       const steps = [{title: "Part 1: Core", task: "Write config, main, and core modules: " + input.slice(0,300)},
@@ -293,15 +313,22 @@ async function executeSkillRun(encodedName) {
 
       let allOutput = '';
       for (let i = 0; i < steps.length; i++) {
-        resultArea.innerHTML = '<div class="loading" style="padding:12px"><div class="loading-spinner"></div><span>⏳ Step ' + (i+1) + '/' + steps.length + ': ' + steps[i].title + '...</span></div>';
+        addLog('Step ' + (i+1) + '/' + steps.length + ': ' + steps[i].title, 'ai');
         const stepRes = await api.runSkill(name, steps[i].task, agent, outputPath);
         allOutput += '\n## ' + steps[i].title + '\n' + (stepRes.output || '');
         if (stepRes.files_created) allOutput += '\n📁 ' + stepRes.files_created.length + ' files saved';
       }
       r = { output: allOutput, agent: 'multi-step', run_id: 'ms-' + Date.now(), files_created: [], output_dir: outputPath, message: 'Multi-step completed' };
     } else {
+      addLog('Sending prompt to AI...', 'ai');
       r = await api.runSkill(name, input, agent, outputPath);
+      addLog('Response received (' + ((r.output || '').length) + ' chars)', 'success');
     }
+    if (r.files_created && r.files_created.length > 0) {
+      addLog(r.files_created.length + ' files saved to ' + (r.output_dir || 'output/'), 'file');
+      r.files_created.forEach(function(f) { addLog(f, 'file'); });
+    }
+    addLog('Done!', 'success');
     if (resultArea) {
       const outputText = r.output || '(no output)';
       resultArea.innerHTML = `
