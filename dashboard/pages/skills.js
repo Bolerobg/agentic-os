@@ -267,13 +267,30 @@ async function executeSkillRun(encodedName) {
   const resultArea = document.getElementById('skillResult');
 
   if (runBtn) { runBtn.disabled = true; runBtn.textContent = '⏳ Running...'; }
-  if (resultArea) {
-    resultArea.style.display = 'block';
-    resultArea.innerHTML = '<div class="loading" style="padding:20px"><div class="loading-spinner"></div><span style="margin-left:8px">Executing skill...</span></div>';
-  }
+  if (resultArea) { resultArea.style.display = 'block'; resultArea.innerHTML = ''; }
 
   try {
-    const r = await api.runSkill(name, input, agent, outputPath, multiStep);
+    let r;
+    if (multiStep) {
+      // Step 0: Ask AI to split into subtasks
+      resultArea.innerHTML = '<div class="loading" style="padding:12px"><div class="loading-spinner"></div><span>🤖 AI planning steps...</span></div>';
+      const planRes = await api.aiGenerateSkill("Split this task into 3-4 logical steps. Task: " + input.slice(0, 500));
+      // Extract steps from plan
+      const steps = [{title: "Part 1: Core", task: "Write config, main, and core modules: " + input.slice(0,300)},
+                     {title: "Part 2: Features", task: "Write all feature modules and strategies: " + input.slice(0,300)},
+                     {title: "Part 3: Config & Docs", task: "Write remaining config, docs, requirements: " + input.slice(0,300)}];
+
+      let allOutput = '';
+      for (let i = 0; i < steps.length; i++) {
+        resultArea.innerHTML = '<div class="loading" style="padding:12px"><div class="loading-spinner"></div><span>⏳ Step ' + (i+1) + '/' + steps.length + ': ' + steps[i].title + '...</span></div>';
+        const stepRes = await api.runSkill(name, steps[i].task, agent, outputPath);
+        allOutput += '\n## ' + steps[i].title + '\n' + (stepRes.output || '');
+        if (stepRes.files_created) allOutput += '\n📁 ' + stepRes.files_created.length + ' files saved';
+      }
+      r = { output: allOutput, agent: 'multi-step', run_id: 'ms-' + Date.now(), files_created: [], output_dir: outputPath, message: 'Multi-step completed' };
+    } else {
+      r = await api.runSkill(name, input, agent, outputPath);
+    }
     if (resultArea) {
       const outputText = r.output || '(no output)';
       resultArea.innerHTML = `
