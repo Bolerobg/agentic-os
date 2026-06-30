@@ -84,14 +84,11 @@ class BrainUpdate(BaseModel):
 class SkillRunRequest(BaseModel):
     input: Optional[str] = ""
     agent: Optional[str] = "auto"
-    output_path: Optional[str] = ""  # where to save generated files
-    multi_step: bool = False  # split into subtasks and execute sequentially
 
 class ScheduleJobRequest(BaseModel):
     name: str
     skill: str
     cron: str
-    input: str = ""
     enabled: bool = True
 
 class SettingsUpdate(BaseModel):
@@ -291,7 +288,7 @@ def call_gemini(messages: list, model: str = "gemini-2.5-pro", max_tokens: int =
     except Exception as e:
         return f"⚠ Gemini API error: {str(e)}"
 
-def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 384000) -> str:
+def call_llm(messages: list, provider: str = "deepseek", model: str = None) -> str:
     settings = _load_settings()
     llm_config = settings.get("llm", {})
     if not provider or provider == "default":
@@ -299,13 +296,13 @@ def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_
 
     if provider == "deepseek":
         m = model or llm_config.get("deepseek_model", "deepseek-v4-pro")
-        return call_deepseek(messages, model=m, max_tokens=max_tokens)
+        return call_deepseek(messages, model=m)
     elif provider == "openrouter":
         m = model or llm_config.get("openrouter_model", "deepseek/deepseek-chat")
-        return call_openrouter(messages, model=m, max_tokens=max_tokens)
+        return call_openrouter(messages, model=m)
     elif provider == "gemini":
         m = model or llm_config.get("gemini_model", "gemini-2.5-pro")
-        return call_gemini(messages, model=m, max_tokens=max_tokens)
+        return call_gemini(messages, model=m)
     else:
         return f"⚠ Unknown provider: {provider}"
 
@@ -392,44 +389,20 @@ def stream_gemini_chunks(text: str) -> Generator[str, None, None]:
 def check_agent(name: str) -> dict:
     """Instant filesystem-based check. No subprocess needed."""
     try:
-        # Also check nvm Node.js bin paths (server may not have user's PATH)
-        extra_paths = []
-        nvm_bin = Path.home() / ".nvm" / "versions"
-        if nvm_bin.exists():
-            for ver_dir in nvm_bin.iterdir():
-                if ver_dir.is_dir():
-                    # Check if there are version dirs inside (e.g., node/v22.14.0/bin)
-                    for sub in ver_dir.iterdir():
-                        if sub.is_dir():
-                            extra_paths.append(str(sub / "bin"))
-                    # Also try directly (e.g., v22.14.0/bin)
-                    extra_paths.append(str(ver_dir / "bin"))
-
-        def find_bin(bin_name):
-            found = shutil.which(bin_name)
-            if found:
-                return found
-            # Search extra paths
-            for p in extra_paths:
-                candidate = Path(p) / bin_name
-                if candidate.exists():
-                    return str(candidate)
-            return None
-
         if name == "opencode":
-            exists = find_bin("opencode") is not None
+            exists = shutil.which("opencode") is not None
             status = "online" if exists else "offline"
         elif name == "hermes":
-            exists = find_bin("hermes") is not None
+            exists = shutil.which("hermes") is not None
             status = "online" if exists else "offline"
         elif name == "gemini":
-            # Gemini uses Google OAuth
-            exists = find_bin("gemini") is not None
+            # Gemini has valid OAuth tokens logged in
             oauth = Path.home() / ".gemini" / "oauth_creds.json"
+            exists = shutil.which("gemini") is not None
             logged_in = oauth.exists() and "ya29" in oauth.read_text()
             status = "online" if exists and logged_in else "offline" if not exists else "warning"
         elif name == "jcode":
-            exists = find_bin("node") is not None
+            exists = shutil.which("node") is not None
             status = "online" if exists else "offline"
         else:
             status = "offline"
@@ -534,8 +507,6 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
 
     agent_choice = req.agent if req else "auto"
     skill_input = req.input if req else ""
-    output_path_override = req.output_path if req and req.output_path else ""
-    is_multi_step = req.multi_step if req else False
 
     # ── Landing Builder: special handler using LLM API ──
     if name == "landing-builder" and skill_input:
@@ -624,8 +595,8 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
     skill_md = read_file(path / "SKILL.md")
     learnings = read_file(path / "learnings.md")
 
-    # ── Special handlers for skills with specific logic (only when no custom input) ──
-    if name == "backup-skill" and not skill_input:
+    # ── Special handlers for skills with specific logic ──
+    if name == "backup-skill":
         backup_dir = BASE_DIR / "backups"
         backup_dir.mkdir(exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -640,7 +611,7 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
                 "output": f"✅ Бекъп създаден: {backup_file.name} ({backup_file.stat().st_size} bytes)",
                 "message": f"Backup created: {backup_file.name}"}
 
-    if name == "heartbeat" and not skill_input:
+    if name == "heartbeat":
         agents = [check_agent(a) for a in ["opencode", "hermes", "gemini", "jcode"]]
         online = [a["name"] for a in agents if a["status"] == "online"]
         append_audit({"action": "skill_run", "skill": name, "agent": "system"})
@@ -648,14 +619,14 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
                 "output": f"💓 Heartbeat OK\n🟢 Online agents: {', '.join(online) if online else 'none'}\n🔴 Offline: {len(agents)-len(online)}\n🕐 {get_timestamp()[:19]}",
                 "message": "Heartbeat check complete"}
 
-    if name == "devops-audit" and not skill_input:
+    if name == "devops-audit":
         import platform, os as os_mod
         info = f"System: {platform.system()} {platform.release()}\nPython: {platform.python_version()}\nCWD: {os.getcwd()}\nDisk: {shutil.disk_usage('/').free // (1024**3)}GB free"
         append_audit({"action": "skill_run", "skill": name, "agent": "system"})
         return {"status": "completed", "skill": name, "agent": "system",
                 "output": f"🔍 DevOps Audit\n{info}", "message": "Audit complete"}
 
-    if name == "cost-analytics" and not skill_input:
+    if name == "cost-analytics":
         cf = BASE_DIR / "data" / "cost-history.json"
         entries = json.loads(cf.read_text())["entries"] if cf.exists() else []
         total = sum(e.get("cost", 0) for e in entries)
@@ -675,13 +646,7 @@ SKILL INSTRUCTIONS:
 PAST LEARNINGS:
 {learnings if learnings else '(none)'}
 
-Execute the task below following the skill instructions exactly. Be thorough and practical.
-
-CRITICAL RULES:
-- Write COMPLETE code for EVERY file. NEVER use placeholders like "(code here)".
-- NEVER truncate, NEVER say "I'll continue later", NEVER offer zip files.
-- Write every line of every file fully. Use ```language:filepath format.
-- After you finish, the system auto-saves files. Just confirm what was created."""
+Execute the task below following the skill instructions exactly. Be thorough and practical."""
 
     user_prompt = skill_input if skill_input else f"Execute the {name} skill with default parameters."
 
@@ -691,66 +656,22 @@ CRITICAL RULES:
     ]
 
     try:
-        response_text = call_llm(messages, max_tokens=384000)
+        response_text = call_llm(messages)
         agent_used = "llm"
     except Exception as e:
         response_text = f"⚠ LLM execution failed: {str(e)}"
         agent_used = "llm-error"
 
-    # Auto-save generated files if response contains file markers
-    files_created = []
-    output_dir = None
-    if response_text and skill_input:
-        # Use custom output path or default to skills/<name>/output
-        if output_path_override:
-            output_dir = Path(output_path_override).resolve()
-            if not str(output_dir).startswith(str(BASE_DIR.resolve())):
-                output_dir = BASE_DIR / output_path_override
-        else:
-            output_dir = path / "output"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        # Parse file markers: ```language:filepath or ## filepath followed by ``` blocks
-        file_pattern = re.findall(r'(?:^#{1,3}\s*`?([\w./-]+\.[\w]+)`?\s*$|^```\w*(?::([\w./-]+\.[\w]+))?\s*$)', response_text, re.MULTILINE)
-        # Simpler: find all ``` blocks with optional file paths
-        blocks = re.findall(r'```(\w+)?(?::(\S+\.\w+))?\s*\n(.*?)```', response_text, re.DOTALL)
-        if not blocks:
-            # Try markdown headers with filenames
-            blocks = re.findall(r'^#{1,3}\s+`?([\w./-]+\.[\w]+)`?\s*\n+(.*?)(?=^#{1,3}\s|```|\Z)', response_text, re.MULTILINE | re.DOTALL)
-
-        for block in blocks:
-            try:
-                if isinstance(block, tuple):
-                    if len(block) == 3 and block[2]:
-                        lang, filepath, code = block
-                        if not filepath:
-                            continue
-                    elif len(block) == 2 and block[0]:
-                        filepath, code = block
-                    else:
-                        continue
-                    filepath = filepath.strip()
-                    code = code.strip()
-                    if filepath and code:
-                        fpath = output_dir / filepath
-                        fpath.parent.mkdir(parents=True, exist_ok=True)
-                        fpath.write_text(code)
-                        files_created.append(str(fpath.relative_to(BASE_DIR)))
-            except Exception:
-                pass
-
     # Save learnings
     timestamp = get_timestamp()[:10]
     existing = read_file(path / "learnings.md")
     new_entry = f"\n## {timestamp} (Run {run_id})\n- Agent: {agent_used}\n- Input: {skill_input or '(none)'}\n- Output: {response_text[:500]}\n"
-    if files_created:
-        new_entry += f"- Files created: {len(files_created)}\n"
     write_file(path / "learnings.md", existing + new_entry)
 
     append_audit({"action": "skill_run", "skill": name, "agent": agent_used, "run_id": run_id,
                   "output_preview": response_text[:100]})
 
-    result = {
+    return {
         "status": "completed",
         "run_id": run_id,
         "skill": name,
@@ -758,11 +679,6 @@ CRITICAL RULES:
         "output": response_text,
         "message": f"Skill '{name}' completed via {agent_used}",
     }
-    if files_created:
-        result["files_created"] = files_created
-        result["output_dir"] = str(output_dir.relative_to(BASE_DIR)) if output_dir else ""
-        result["message"] += f" — {len(files_created)} files saved to skills/{name}/output/"
-    return result
 
 @app.get("/api/skills/{name}/eval")
 def get_skill_eval(name: str):
@@ -922,49 +838,9 @@ def restore_backup(data: BackupRestoreRequest):
 def list_prompts():
     prompts_dir = BASE_DIR / "prompts"
     prompts = {}
-    if prompts_dir.exists():
-        for f in sorted(prompts_dir.glob("*.md")):
-            prompts[f.stem] = read_file(f)
+    for f in sorted(prompts_dir.glob("*.md")):
+        prompts[f.stem] = read_file(f)
     return prompts
-
-@app.post("/api/prompts")
-def create_prompt(data: dict):
-    name = (data.get("name", "") or "").strip().lower().replace(" ", "-")
-    content = data.get("content", "")
-    if not name or not content:
-        raise HTTPException(400, "Name and content required")
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid name")
-    prompts_dir = BASE_DIR / "prompts"
-    prompts_dir.mkdir(exist_ok=True)
-    (prompts_dir / f"{name}.md").write_text(content)
-    append_audit({"action": "prompt_created", "name": name})
-    return {"status": "created", "name": name}
-
-@app.put("/api/prompts/{name}")
-def update_prompt(name: str, data: dict):
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid name")
-    content = data.get("content", "")
-    prompts_dir = BASE_DIR / "prompts"
-    path = prompts_dir / f"{name}.md"
-    if not path.exists():
-        raise HTTPException(404, "Prompt not found")
-    path.write_text(content)
-    append_audit({"action": "prompt_updated", "name": name})
-    return {"status": "updated", "name": name}
-
-@app.delete("/api/prompts/{name}")
-def delete_prompt(name: str):
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid name")
-    prompts_dir = BASE_DIR / "prompts"
-    path = prompts_dir / f"{name}.md"
-    if not path.exists():
-        raise HTTPException(404, "Prompt not found")
-    path.unlink()
-    append_audit({"action": "prompt_deleted", "name": name})
-    return {"status": "deleted"}
 
 # ─── Routes: Settings ─────────────────────────────────────────────
 
@@ -977,8 +853,6 @@ def get_settings():
     # Mask sensitive values
     if "api_keys" in data:
         data["api_keys"] = {k: v[:4] + "****" if len(v) > 8 else "****" for k, v in data["api_keys"].items()}
-    if "github" in data and "token" in data["github"]:
-        data["github"]["token"] = data["github"]["token"][:4] + "****"
     return data
 
 @app.put("/api/settings")
@@ -991,357 +865,8 @@ def update_settings(data: SettingsUpdate):
     append_audit({"action": "settings_updated"})
     return {"status": "ok"}
 
+# ─── Routes: Webhooks & Scheduler Events (v0.3.0) ─────────────────
 
-# ═══════════════════════════════════════════════════════════════════
-# GitHub Integration
-# ═══════════════════════════════════════════════════════════════════
-
-def _get_github_credentials():
-    settings = _load_json(BASE_DIR / "data" / "settings.json", {})
-    gh = settings.get("github", {})
-    return gh.get("username", ""), gh.get("token", "")
-
-def _github_api(path: str, method: str = "GET", body: dict = None) -> dict:
-    """Call GitHub REST API."""
-    username, token = _get_github_credentials()
-    if not token:
-        raise HTTPException(400, "GitHub token not configured. Add it in Settings.")
-    url = f"https://api.github.com{path}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "Agentic-OS",
-    }
-    data = json.dumps(body).encode() if body else None
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=30, context=SSL_CONTEXT) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as e:
-        err = e.read().decode()[:300]
-        raise HTTPException(e.code, f"GitHub API error: {err}")
-
-@app.get("/api/github/status")
-def github_status():
-    """Check GitHub connection and return user info."""
-    try:
-        user = _github_api("/user")
-        return {
-            "connected": True,
-            "user": user.get("login", ""),
-            "name": user.get("name", ""),
-            "avatar": user.get("avatar_url", ""),
-            "repos_count": user.get("public_repos", 0),
-        }
-    except Exception as e:
-        return {"connected": False, "error": str(e)}
-
-@app.get("/api/github/repos")
-def github_list_repos():
-    """List user's repositories."""
-    username, _ = _get_github_credentials()
-    repos = _github_api("/user/repos?sort=updated&per_page=30&type=owner")
-    return [{
-        "name": r["name"],
-        "full_name": r["full_name"],
-        "private": r["private"],
-        "description": r.get("description", ""),
-        "url": r["html_url"],
-        "clone_url": r["clone_url"],
-        "updated": r["updated_at"],
-        "language": r.get("language", ""),
-    } for r in repos]
-
-@app.post("/api/github/create-repo")
-def github_create_repo(data: dict):
-    """Create a new GitHub repository."""
-    name = (data.get("name", "") or "").strip()
-    if not name:
-        raise HTTPException(400, "Repository name required")
-    description = data.get("description", "")
-    private = data.get("private", False)
-
-    repo = _github_api("/user/repos", "POST", {
-        "name": name,
-        "description": description,
-        "private": private,
-        "auto_init": False,
-    })
-    append_audit({"action": "github_repo_created", "repo": name})
-    return {
-        "name": repo["name"],
-        "full_name": repo["full_name"],
-        "url": repo["html_url"],
-        "clone_url": repo["clone_url"],
-    }
-
-@app.post("/api/github/init")
-def github_init_repo(data: dict):
-    """Initialize a git repo in a project folder and link to GitHub."""
-    project_path = (data.get("path", "") or "").strip()
-    repo_name = (data.get("name", "") or "").strip()
-    make_private = data.get("private", False)
-
-    if not project_path:
-        raise HTTPException(400, "Project path required")
-    if not repo_name:
-        repo_name = Path(project_path).name
-
-    proj = Path(project_path).resolve()
-    if not proj.exists():
-        raise HTTPException(400, f"Project folder not found: {project_path}")
-
-    # Check if already a git repo
-    if (proj / ".git").exists():
-        return {"status": "already_initialized", "path": str(proj), "message": "This folder is already a git repository"}
-
-    # Create GitHub repo
-    repo = _github_api("/user/repos", "POST", {
-        "name": repo_name,
-        "private": make_private,
-        "auto_init": False,
-    })
-
-    # Init git locally
-    username, token = _get_github_credentials()
-    clone_url = repo["clone_url"]
-    auth_url = clone_url.replace("https://", f"https://{username}:{token}@")
-
-    subprocess.run(["git", "init"], cwd=str(proj), capture_output=True, text=True)
-    subprocess.run(["git", "remote", "add", "origin", auth_url], cwd=str(proj), capture_output=True, text=True)
-
-    # Create .gitignore if not exists
-    gitignore = proj / ".gitignore"
-    if not gitignore.exists():
-        gitignore.write_text("__pycache__/\n*.pyc\n.env\nnode_modules/\ndata/\n*.db\n.DS_Store\n")
-
-    # Initial commit
-    subprocess.run(["git", "add", "-A"], cwd=str(proj), capture_output=True, text=True)
-    result = subprocess.run(["git", "commit", "-m", "Initial commit via Agentic OS"], cwd=str(proj), capture_output=True, text=True)
-
-    # Push
-    push = subprocess.run(["git", "push", "-u", "origin", "main"], cwd=str(proj), capture_output=True, text=True)
-
-    append_audit({"action": "github_init", "path": str(proj), "repo": repo_name})
-    return {
-        "status": "initialized",
-        "repo": repo["full_name"],
-        "url": repo["html_url"],
-        "path": str(proj),
-        "commit": result.stdout.strip() or result.stderr.strip(),
-        "push": push.stdout.strip() or push.stderr.strip(),
-    }
-
-@app.post("/api/github/commit")
-def github_commit(data: dict):
-    """Commit and push changes in a project."""
-    project_path = (data.get("path", "") or "").strip()
-    message = (data.get("message", "") or "Update via Agentic OS").strip()
-
-    if not project_path:
-        raise HTTPException(400, "Project path required")
-    proj = Path(project_path).resolve()
-    if not (proj / ".git").exists():
-        raise HTTPException(400, "Not a git repository. Initialize first.")
-
-    # Stage changes
-    files_to_add = data.get("files", [])
-    if files_to_add:
-        for f in files_to_add:
-            subprocess.run(["git", "add", f], cwd=str(proj), capture_output=True, text=True)
-    else:
-        subprocess.run(["git", "add", "-A"], cwd=str(proj), capture_output=True, text=True)
-
-    # Check if there are changes
-    status = subprocess.run(["git", "status", "--porcelain"], cwd=str(proj), capture_output=True, text=True)
-    if not status.stdout.strip():
-        return {"status": "nothing_to_commit", "message": "No changes to commit"}
-
-    # Commit
-    result = subprocess.run(["git", "commit", "-m", message], cwd=str(proj), capture_output=True, text=True)
-
-    # Push
-    push = subprocess.run(["git", "push"], cwd=str(proj), capture_output=True, text=True)
-
-    append_audit({"action": "github_commit", "path": str(proj), "message": message})
-    return {
-        "status": "committed",
-        "commit": result.stdout.strip() or result.stderr.strip(),
-        "push": push.stdout.strip() or push.stderr.strip(),
-    }
-
-@app.post("/api/github/push")
-def github_push(data: dict):
-    """Push to remote."""
-    project_path = (data.get("path", "") or "").strip()
-    if not project_path:
-        raise HTTPException(400, "Project path required")
-    proj = Path(project_path).resolve()
-    if not (proj / ".git").exists():
-        raise HTTPException(400, "Not a git repository.")
-
-    push = subprocess.run(["git", "push"], cwd=str(proj), capture_output=True, text=True)
-    return {"status": "pushed", "output": push.stdout.strip() or push.stderr.strip()}
-
-@app.get("/api/github/project-info")
-def github_project_info(path: str = Query("")):
-    """Get git status of a project folder."""
-    if not path:
-        proj = BASE_DIR
-    else:
-        proj = Path(path).resolve()
-
-    if not (proj / ".git").exists():
-        return {"is_repo": False, "path": str(proj)}
-
-    # Get status
-    status = subprocess.run(["git", "status", "--porcelain"], cwd=str(proj), capture_output=True, text=True)
-    changed = [l.strip() for l in status.stdout.strip().split("\n") if l.strip()]
-
-    # Get remote
-    remote = subprocess.run(["git", "remote", "get-url", "origin"], cwd=str(proj), capture_output=True, text=True)
-    remote_url = remote.stdout.strip()
-    # Clean token from URL
-    if "@" in remote_url:
-        remote_url = "https://github.com/" + remote_url.split("@github.com/")[-1] if "@github.com/" in remote_url else remote_url
-
-    # Get branch
-    branch = subprocess.run(["git", "branch", "--show-current"], cwd=str(proj), capture_output=True, text=True)
-
-    # Get last commit
-    last_commit = subprocess.run(["git", "log", "-1", "--format=%h %s (%ar)"], cwd=str(proj), capture_output=True, text=True)
-
-    return {
-        "is_repo": True,
-        "path": str(proj),
-        "branch": branch.stdout.strip(),
-        "remote": remote_url,
-        "changed_files": changed,
-        "changed_count": len(changed),
-        "last_commit": last_commit.stdout.strip(),
-    }
-
-# ─── 5 New Pro Features — v2.1 ──────────────────────────────────
-
-# 1. Context Injection — auto-inject memory into agent chats
-@app.get("/api/brain/context")
-def get_brain_context(max_tokens: int = 4000):
-    brain_dir = BASE_DIR / "brain"
-    if not brain_dir.exists():
-        return {"context": "", "files": []}
-    parts, files_list, total = [], [], 0
-    max_chars = max_tokens * 4
-    for f in sorted(brain_dir.glob("*.md")):
-        if total >= max_chars: break
-        c = read_file(f)
-        if c.strip():
-            parts.append(f"## {f.stem.replace('-',' ').title()}\n{c[:max_chars-total]}")
-            files_list.append(f.name)
-            total += min(len(c), max_chars - total)
-    return {"context": "\n\n".join(parts), "files": files_list, "total_chars": total}
-
-# 2. Task Templates
-TASK_TEMPLATES = {
-    "code-review": {"title":"Code Review","description":"Review code for bugs, security issues, improvements","agent":"gemini","priority":"medium","category":"code"},
-    "deploy": {"title":"Deploy to Production","description":"Build and deploy to production server","agent":"opencode","priority":"high","category":"devops"},
-    "backup": {"title":"Daily Backup","description":"Create backup of all databases and configs","agent":"hermes","priority":"medium","category":"maintenance"},
-    "research": {"title":"Research Topic","description":"Research and summarize with sources","agent":"gemini","priority":"low","category":"research"},
-    "fix-bug": {"title":"Fix Bug","description":"Investigate, find root cause, implement fix","agent":"opencode","priority":"high","category":"code"},
-    "report": {"title":"Activity Report","description":"Generate daily summary of activities and costs","agent":"hermes","priority":"medium","category":"reporting"},
-    "docs": {"title":"Write Documentation","description":"Write clear documentation for feature/module","agent":"gemini","priority":"low","category":"docs"},
-    "optimize": {"title":"Optimize Performance","description":"Profile, identify bottlenecks, improve","agent":"opencode","priority":"medium","category":"optimization"},
-}
-
-@app.get("/api/tasks/templates")
-def get_task_templates():
-    return {"templates": TASK_TEMPLATES}
-
-@app.post("/api/tasks/batch")
-def batch_task_action(data: dict):
-    ids, action = data.get("ids",[]), data.get("action","")
-    if not ids or not action: raise HTTPException(400, "ids and action required")
-    results = []
-    for tid in ids:
-        t = _active_tasks.get(tid)
-        if not t: results.append({"id":tid,"status":"not_found"}); continue
-        if action == "cancel": t["status"]="cancelled"; t["completed"]=get_timestamp()
-        elif action == "delete": _active_tasks.pop(tid,None); tasks=_load_json(TASKS_FILE,[]); tasks=[x for x in tasks if x["id"]!=tid]; _save_json(TASKS_FILE,tasks)
-        elif action == "retry": t["status"]="pending"; t["progress"]=0; t["error"]=None
-        results.append({"id":tid,"status":t.get("status","deleted")})
-    return {"results":results,"action":action}
-
-# 3. Cost Optimization
-@app.get("/api/analytics/efficiency")
-def get_cost_efficiency():
-    metrics = _load_json(METRICS_FILE, {"agents":{},"history":[]})
-    eff = {}
-    for name in ["opencode","hermes","gemini","jcode"]:
-        runs = metrics.get("agents",{}).get(name,{}).get("runs",[])
-        if not runs: eff[name]={"tokens_per_task":0,"cost_per_task":0}; continue
-        total_t = sum(r.get("tokens_used",0) for r in runs)
-        total_c = sum(r.get("cost",0) for r in runs)
-        succ = [r for r in runs if r.get("success",True)]
-        eff[name]={"total_tasks":len(runs),"tokens_per_task":round(total_t/len(runs)),"cost_per_task":round(total_c/len(runs),6),"success_rate":round(len(succ)/len(runs)*100,1),"total_tokens":total_t,"total_cost":round(total_c,6)}
-    cost_d = _load_json(BASE_DIR/"data"/"cost-history.json",{"entries":[]})
-    models = {}
-    for e in cost_d.get("entries",[]):
-        m = e.get("model","unknown"); models.setdefault(m,{"tokens":0,"cost":0,"calls":0})
-        models[m]["tokens"]+=e.get("tokens",0); models[m]["cost"]+=e.get("cost",0); models[m]["calls"]+=1
-    for m in models: models[m]["cost_per_1k"]=round(models[m]["cost"]/max(models[m]["tokens"],1)*1000,6)
-    return {"agents":eff,"models":models}
-
-# 4. Skill Improvement Suggestions
-@app.post("/api/skills/suggest-improvement/{name}")
-def suggest_skill_improvement(name: str):
-    if ".." in name or "/" in name: raise HTTPException(400,"Invalid")
-    path = BASE_DIR/"skills"/name
-    if not path.exists(): raise HTTPException(404,"Not found")
-    sm = read_file(path/"SKILL.md")
-    scores = json.loads((path/"score-history.json").read_text()) if (path/"score-history.json").exists() else []
-    prompt = f"Analyze skill '{name}':\n{sm[:2000]}\n\nRuns: {len(scores)}. Suggest 3 specific improvements as numbered list."
-    try: resp = call_llm([{"role":"user","content":prompt}]); return {"skill":name,"suggestions":resp}
-    except Exception as e: return {"skill":name,"suggestions":f"Error: {e}"}
-
-# 5. Dashboard Widget Config
-DASHBOARD_CFG = BASE_DIR/"data"/"dashboard-config.json"
-
-@app.get("/api/dashboard/config")
-def get_dashboard_config():
-    return _load_json(DASHBOARD_CFG,{"widgets":{"stats":True,"agents":True,"activity":True,"cost_chart":True,"alerts":True,"system_health":True,"quick_actions":True},"refresh_interval":30})
-
-@app.put("/api/dashboard/config")
-def update_dashboard_config(data: dict):
-    _save_json(DASHBOARD_CFG,data)
-    return {"status":"saved"}
-
-# Custom Task Templates
-CUSTOM_TEMPLATES_FILE = BASE_DIR / "data" / "custom-templates.json"
-
-@app.get("/api/tasks/templates/custom")
-def get_custom_templates_api():
-    return _load_json(CUSTOM_TEMPLATES_FILE, [])
-
-@app.post("/api/tasks/templates/custom")
-def add_custom_template_api(data: dict):
-    title = (data.get("title", "") or "").strip()
-    if not title: raise HTTPException(400, "Title required")
-    templates = _load_json(CUSTOM_TEMPLATES_FILE, [])
-    t = {"id": str(uuid.uuid4())[:8], "title": title, "description": data.get("description", ""),
-         "agent": data.get("agent", "opencode"), "priority": data.get("priority", "medium"),
-         "category": data.get("category", "custom")}
-    templates.append(t)
-    _save_json(CUSTOM_TEMPLATES_FILE, templates)
-    return t
-
-@app.delete("/api/tasks/templates/custom/{tid}")
-def delete_custom_template_api(tid: str):
-    templates = _load_json(CUSTOM_TEMPLATES_FILE, [])
-    templates = [t for t in templates if t["id"] != tid]
-    _save_json(CUSTOM_TEMPLATES_FILE, templates)
-    return {"status": "deleted"}
-
-
-# ─── Main ─────────────────────────────────────────────────────────
 @app.post("/api/webhook")
 def webhook_receiver(data: dict):
     """Generic webhook receiver — triggers skill execution by event type."""
@@ -1411,8 +936,6 @@ def generate_skill(data: dict):
     description = data.get("description", "").strip()
     if not name or not description:
         raise HTTPException(400, "Both 'name' and 'description' are required")
-    if len(name) > 80:
-        raise HTTPException(400, "Skill name too long (max 80 characters)")
     if not re.match(r'^[a-z0-9-]+$', name):
         raise HTTPException(400, "Skill name must be alphanumeric with hyphens")
     skill_dir = BASE_DIR / "skills" / name
@@ -1442,79 +965,6 @@ Generate this skill by running it with appropriate input.
     (skill_dir / "score-history.json").write_text("[]")
     append_audit({"action": "skill_generated", "name": name, "description": description})
     return {"status": "created", "name": name, "skill": skill_md}
-
-@app.put("/api/skills/{name}/update")
-def update_skill_content(name: str, data: dict):
-    """Update a skill's SKILL.md content."""
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid skill name")
-    skill_dir = BASE_DIR / "skills" / name
-    if not skill_dir.exists():
-        raise HTTPException(404, "Skill not found")
-    content = data.get("content", "")
-    (skill_dir / "SKILL.md").write_text(content)
-    append_audit({"action": "skill_updated", "name": name})
-    return {"status": "updated", "name": name}
-
-@app.delete("/api/skills/{name}")
-def delete_skill(name: str):
-    """Delete an entire skill directory."""
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid skill name")
-    skill_dir = BASE_DIR / "skills" / name
-    if not skill_dir.exists():
-        raise HTTPException(404, "Skill not found")
-    shutil.rmtree(skill_dir)
-    append_audit({"action": "skill_deleted", "name": name})
-    return {"status": "deleted", "name": name}
-
-@app.post("/api/skills/ai-generate")
-def ai_generate_skill(data: dict):
-    """AI generates a proper SKILL.md from a natural language idea."""
-    idea = (data.get("idea", "") or "").strip()
-    if not idea or len(idea) < 10:
-        raise HTTPException(400, "Please describe your skill idea in at least 10 characters")
-
-    prompt = f"""You are a skill designer for Agentic OS. Convert this idea into a professional SKILL.md file.
-
-USER'S IDEA:
-{idea}
-
-Return ONLY the SKILL.md content in this exact format:
-
-# [Skill Title — short, descriptive]
-
-[One-line description of what this skill does]
-
-## Description
-[2-3 sentences explaining the skill in detail]
-
-## When to Use
-- [Scenario 1]
-- [Scenario 2]
-- [Scenario 3]
-
-## Input
-[What inputs does this skill need?]
-
-## Output
-[What does it produce?]
-
-## Primary Agent
-[Suggest which agent: opencode/hermes/gemini/jcode and why]
-
-## Example Prompts
-- "[Example prompt 1]"
-- "[Example prompt 2]"
-
-Generate a complete, professional SKILL.md now:"""
-
-    try:
-        response = call_llm([{"role": "user", "content": prompt}], provider="deepseek")
-        return {"skill_md": response, "idea": idea}
-    except Exception as e:
-        return {"skill_md": f"Error generating: {e}", "idea": idea}
-
 
 # ─── Routes: Error Tracking (v0.3.0) ───────────────────────────────
 
@@ -1632,70 +1082,8 @@ def discover_standards():
     append_audit({"action": "standards_discovery_run"})
     return {"status": "discovery_started", "message": "Scanning codebase for patterns..."}
 
-@app.post("/api/standards")
-def create_standard(data: dict):
-    name = (data.get("name", "") or "").strip().lower().replace(" ", "-")
-    content = data.get("content", "")
-    if not name or not content:
-        raise HTTPException(400, "Name and content required")
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid name")
-    std_dir = BASE_DIR / "standards"
-    std_dir.mkdir(exist_ok=True)
-    (std_dir / f"{name}.md").write_text(content)
-    append_audit({"action": "standard_created", "name": name})
-    return {"status": "created", "name": name}
-
-@app.put("/api/standards/{name}")
-def update_standard(name: str, data: dict):
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid name")
-    content = data.get("content", "")
-    path = BASE_DIR / "standards" / f"{name}.md"
-    if not path.exists():
-        raise HTTPException(404, "Standard not found")
-    path.write_text(content)
-    append_audit({"action": "standard_updated", "name": name})
-    return {"status": "updated", "name": name}
-
-@app.delete("/api/standards/{name}")
-def delete_standard(name: str):
-    if ".." in name or "/" in name:
-        raise HTTPException(400, "Invalid name")
-    path = BASE_DIR / "standards" / f"{name}.md"
-    if not path.exists():
-        raise HTTPException(404, "Standard not found")
-    path.unlink()
-    append_audit({"action": "standard_deleted", "name": name})
-    return {"status": "deleted"}
-
-@app.post("/api/standards/ai-generate")
-def ai_generate_standard(data: dict):
-    idea = (data.get("idea", "") or "").strip()
-    if not idea or len(idea) < 10:
-        raise HTTPException(400, "Describe your standard in at least 10 characters")
-
-    prompt = f"""You are a coding standards expert. Write a professional standard based on this idea:
-
-{idea}
-
-Return a well-formatted markdown document with:
-- Clear title
-- Purpose section
-- Rules/guidelines as bullet points
-- Examples (code snippets if applicable)
-- Enforcement notes
-
-Generate now:"""
-
-    try:
-        response = call_llm([{"role": "user", "content": prompt}], provider="deepseek")
-        return {"standard_md": response, "idea": idea}
-    except Exception as e:
-        return {"standard_md": f"Error: {e}", "idea": idea}
-
-
 # ─── Routes: Chat ─────────────────────────────────────────────────
+
 CHAT_HISTORY_FILE = BASE_DIR / "data" / "chat-history.json"
 
 def load_chat_history():
@@ -1864,7 +1252,6 @@ async def chat_stream(data: dict):
     agent = (data.get("agent", "") or "").lower().strip()
     message = (data.get("message", "") or "").strip()
     project_path = (data.get("project", "") or "").strip()
-    user_model = (data.get("model", "") or "").strip()
     if not message:
         raise HTTPException(400, "Message required")
 
@@ -1902,15 +1289,15 @@ async def chat_stream(data: dict):
 
     async def generate():
         full_response = ""
-        yield f"data: {json.dumps({'type': 'start', 'agent': agent, 'model': user_model or 'default'})}\n\n"
+        yield f"data: {json.dumps({'type': 'start', 'agent': agent})}\n\n"
         try:
             if provider == "openrouter":
-                streamer = stream_openrouter(messages, model=user_model or "deepseek/deepseek-chat")
+                streamer = stream_openrouter(messages)
             elif provider == "gemini":
-                text = call_gemini(messages, model=user_model or "gemini-2.5-pro")
+                text = call_gemini(messages)
                 streamer = stream_gemini_chunks(text)
             else:
-                streamer = stream_deepseek(messages, model=user_model or "deepseek-v4-pro")
+                streamer = stream_deepseek(messages)
             for token in streamer:
                 if token:
                     full_response += token
@@ -2981,7 +2368,7 @@ DEFAULT_AGENT_CONFIGS = {
         "provider": "deepseek",
         "rate_limit": 0,
         "capabilities": ["code_generation", "devops", "file_operations", "git", "terraform", "docker", "testing", "scripting"],
-        "context_window": 384000,
+        "context_window": 128000,
         "api_key_status": "ok",
         "description": "Code & DevOps — infrastructure, git, file ops, deployment",
     },
@@ -2994,7 +2381,7 @@ DEFAULT_AGENT_CONFIGS = {
         "provider": "openrouter",
         "rate_limit": 0,
         "capabilities": ["memory", "scheduling", "messaging", "skills", "plugins", "backup", "channel_management"],
-        "context_window": 384000,
+        "context_window": 128000,
         "api_key_status": "ok",
         "description": "Memory & Scheduling — context, cron jobs, messaging, skill orchestration",
     },
@@ -3020,7 +2407,7 @@ DEFAULT_AGENT_CONFIGS = {
         "provider": "deepseek",
         "rate_limit": 0,
         "capabilities": ["javascript", "nodejs", "typescript", "frontend", "react", "vue", "npm", "web_development"],
-        "context_window": 384000,
+        "context_window": 128000,
         "api_key_status": "ok",
         "description": "JavaScript & Node.js — JS, TS, frontend, web development",
     },
@@ -3235,8 +2622,7 @@ def get_cost_summary():
     # Last 7 days
     dates = []
     for i in range(6, -1, -1):
-        from datetime import timedelta
-        d = (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%Y-%m-%d")
+        d = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=i)).strftime("%Y-%m-%d")
         dates.append(d)
 
     daily = []
@@ -3452,345 +2838,6 @@ def run_comparison(data: ComparisonRequest):
 def get_comparison_history():
     """Get past comparison results."""
     return _load_json(COMPARISONS_FILE, [])
-
-# ─── Scheduled Reports & Email Digest ──────────────────────────
-
-REPORTS_FILE = BASE_DIR / "data" / "reports.json"
-
-class ReportSchedule(BaseModel):
-    name: str
-    frequency: str = "daily"  # daily, weekly, monthly
-    recipients: str = ""  # comma-separated emails
-    include_sections: list = ["summary", "agents", "cost", "errors"]
-    enabled: bool = True
-
-@app.get("/api/reports/config")
-def get_report_configs():
-    return _load_json(REPORTS_FILE, {"schedules": [], "history": []})
-
-@app.post("/api/reports/schedule")
-def schedule_report(data: ReportSchedule):
-    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
-    schedule = {
-        "id": str(uuid.uuid4())[:8],
-        "name": data.name,
-        "frequency": data.frequency,
-        "recipients": data.recipients,
-        "include_sections": data.include_sections,
-        "enabled": data.enabled,
-        "created": get_timestamp(),
-        "last_sent": None,
-        "sent_count": 0,
-    }
-    reports["schedules"].append(schedule)
-    _save_json(REPORTS_FILE, reports)
-    return schedule
-
-@app.delete("/api/reports/schedule/{schedule_id}")
-def delete_report_schedule(schedule_id: str):
-    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
-    reports["schedules"] = [s for s in reports["schedules"] if s["id"] != schedule_id]
-    _save_json(REPORTS_FILE, reports)
-    return {"status": "deleted"}
-
-@app.post("/api/reports/generate")
-def generate_report():
-    """Generate a summary report of current system state."""
-    # Gather all data
-    status = {"agents": [check_agent(a) for a in ["opencode", "hermes", "gemini", "jcode"]]}
-    metrics = _load_json(METRICS_FILE, {"agents": {}, "history": []})
-    cost_data = _load_json(BASE_DIR / "data" / "cost-history.json", {"entries": []})
-    tasks_data = _load_json(TASKS_FILE, [])
-    errors_data = json.loads(ERROR_LOG_FILE.read_text()) if ERROR_LOG_FILE.exists() else []
-    alerts_data = _load_json(ALERTS_FILE, {"rules": [], "history": []})
-
-    # Agent summary
-    agent_summary = {}
-    for name in ["opencode", "hermes", "gemini", "jcode"]:
-        runs = metrics.get("agents", {}).get(name, {}).get("runs", [])
-        today_runs = [r for r in runs if r.get("timestamp", "").startswith(get_timestamp()[:10])]
-        agent_summary[name] = {
-            "status": check_agent(name)["status"],
-            "total_runs": len(runs),
-            "today_runs": len(today_runs),
-            "success_rate": round(sum(1 for r in runs if r.get("success", True)) / len(runs) * 100, 1) if runs else 100,
-            "total_tokens": sum(r.get("tokens_used", 0) for r in runs),
-            "total_cost": round(sum(r.get("cost", 0) for r in runs), 6),
-        }
-
-    # Cost summary
-    entries = cost_data.get("entries", [])
-    today_cost = sum(e.get("cost", 0) for e in entries if e.get("timestamp", "").startswith(get_timestamp()[:10]))
-    total_cost = sum(e.get("cost", 0) for e in entries)
-
-    # Task summary
-    task_statuses = {"pending": 0, "running": 0, "completed": 0, "failed": 0}
-    for t in tasks_data:
-        s = t.get("status", "pending")
-        task_statuses[s] = task_statuses.get(s, 0) + 1
-
-    # Error summary
-    recent_errors = errors_data[-10:] if errors_data else []
-
-    report = {
-        "id": str(uuid.uuid4())[:8],
-        "generated": get_timestamp(),
-        "title": f"Agentic OS Report — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
-        "summary": {
-            "agents_online": sum(1 for a in status["agents"] if a["status"] == "online"),
-            "agents_total": len(status["agents"]),
-            "active_tasks": task_statuses.get("running", 0),
-            "today_cost": round(today_cost, 6),
-            "total_cost": round(total_cost, 6),
-            "unread_alerts": len([a for a in alerts_data.get("history", []) if not a.get("read")]),
-        },
-        "agents": agent_summary,
-        "tasks": task_statuses,
-        "cost": {"today": round(today_cost, 6), "total": round(total_cost, 6)},
-        "errors": [{"message": e.get("message", "")[:100], "category": e.get("category", "")} for e in recent_errors],
-        "top_skills": [],  # populated below
-    }
-
-    # Top skills
-    skills_dir = BASE_DIR / "skills"
-    skill_runs = []
-    for d in skills_dir.iterdir():
-        if d.is_dir() and not d.name.startswith("_"):
-            score_path = d / "score-history.json"
-            scores = json.loads(score_path.read_text()) if score_path.exists() else []
-            if scores:
-                skill_runs.append({"name": d.name, "runs": len(scores), "avg_score": round(sum(s.get("score", 0) for s in scores) / len(scores), 2)})
-    report["top_skills"] = sorted(skill_runs, key=lambda x: x["runs"], reverse=True)[:5]
-
-    # Save history
-    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
-    reports.setdefault("history", []).append(report)
-    if len(reports["history"]) > 50:
-        reports["history"] = reports["history"][-50:]
-    _save_json(REPORTS_FILE, reports)
-
-    return report
-
-@app.post("/api/reports/send/{schedule_id}")
-def send_report(schedule_id: str):
-    """Trigger sending a scheduled report."""
-    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
-    schedule = None
-    for s in reports.get("schedules", []):
-        if s["id"] == schedule_id:
-            schedule = s
-            break
-    if not schedule:
-        raise HTTPException(404, "Schedule not found")
-
-    # Generate report
-    report = generate_report()
-    schedule["last_sent"] = get_timestamp()
-    schedule["sent_count"] = schedule.get("sent_count", 0) + 1
-
-    recipients = [r.strip() for r in schedule.get("recipients", "").split(",") if r.strip()]
-    _save_json(REPORTS_FILE, reports)
-
-    # Build markdown
-    md = f"""# {report['title']}
-
-## Summary
-- 🟢 Agents: **{report['summary']['agents_online']}/{report['summary']['agents_total']}** online
-- 📋 Tasks: **{report['summary']['active_tasks']}** active
-- 💰 Cost today: **${report['summary']['today_cost']:.4f}**
-- 🔔 Alerts: **{report['summary']['unread_alerts']}** unread
-
-## Agent Performance
-"""
-    for name, a in report["agents"].items():
-        md += f"- **{name}**: {a['status']} | {a['today_runs']} runs today | {a['success_rate']}% success | ${a['total_cost']:.4f}\n"
-
-    md += f"\n## Tasks\n- Pending: {report['tasks'].get('pending', 0)}\n- Running: {report['tasks'].get('running', 0)}\n- Completed: {report['tasks'].get('completed', 0)}\n- Failed: {report['tasks'].get('failed', 0)}\n"
-
-    if report["top_skills"]:
-        md += "\n## Top Skills\n"
-        for sk in report["top_skills"]:
-            md += f"- {sk['name']}: {sk['runs']} runs, avg score {sk['avg_score']}\n"
-
-    if report["errors"]:
-        md += f"\n## Recent Errors ({len(report['errors'])})\n"
-        for e in report["errors"][:5]:
-            md += f"- [{e['category']}] {e['message']}\n"
-
-    append_audit({"action": "report_sent", "schedule": schedule["name"], "recipients": recipients})
-    return {"status": "sent", "report": report, "markdown": md, "recipients": recipients}
-
-
-# ─── 3. Global Search ─────────────────────────────────────────────
-
-@app.get("/api/search")
-def global_search(q: str = Query(""), limit: int = Query(20, le=50)):
-    """Search across all data sources."""
-    if not q or len(q) < 2:
-        return {"query": q, "results": [], "total": 0}
-
-    ql = q.lower()
-    results = []
-
-    # Search conversations
-    chat = load_chat_history()
-    for msg in chat.get("messages", []):
-        if ql in (msg.get("content", "") or "").lower():
-            results.append({
-                "source": "conversation",
-                "title": (msg.get("content", "") or "")[:80],
-                "preview": (msg.get("content", "") or "")[:150],
-                "agent": msg.get("agent", ""),
-                "timestamp": msg.get("timestamp", ""),
-                "link": f"#conversation-inspector",
-            })
-
-    # Search tasks
-    tasks = list(_active_tasks.values())
-    for t in _load_json(TASKS_FILE, []):
-        if t["id"] not in _active_tasks:
-            tasks.append(t)
-    for t in tasks:
-        if ql in (t.get("title", "") + t.get("description", "")).lower():
-            results.append({
-                "source": "task",
-                "title": t.get("title", ""),
-                "preview": (t.get("description", "") or t.get("title", ""))[:150],
-                "status": t.get("status", ""),
-                "agent": t.get("agent", ""),
-                "timestamp": t.get("created", ""),
-                "link": f"#task-queue",
-            })
-
-    # Search skills
-    for d in sorted((BASE_DIR / "skills").iterdir()):
-        if d.is_dir() and not d.name.startswith("_"):
-            skill_md = read_file(d / "SKILL.md")
-            learnings = read_file(d / "learnings.md")
-            if ql in d.name or ql in skill_md.lower() or ql in learnings.lower():
-                results.append({
-                    "source": "skill",
-                    "title": d.name,
-                    "preview": skill_md[:150] if skill_md else "",
-                    "timestamp": "",
-                    "link": f"#skills",
-                })
-
-    # Search audit
-    for e in (api_get_audit_entries())[-200:]:
-        entry_text = json.dumps(e).lower()
-        if ql in entry_text:
-            results.append({
-                "source": "audit",
-                "title": e.get("action", ""),
-                "preview": f"{e.get('skill', '')} {e.get('agent', '')} #{e.get('run_id', '')}".strip()[:150],
-                "timestamp": e.get("timestamp", ""),
-                "link": "#audit",
-            })
-
-    # Search brain/memory
-    brain_dir = BASE_DIR / "brain"
-    if brain_dir.exists():
-        for f in brain_dir.glob("*.md"):
-            content = read_file(f)
-            if ql in f.name.lower() or ql in content.lower():
-                results.append({
-                    "source": "memory",
-                    "title": f.name.replace(".md", ""),
-                    "preview": content[:150],
-                    "timestamp": "",
-                    "link": "#memory",
-                })
-
-    # Sort by recency, deduplicate loosely
-    results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
-    total = len(results)
-    results = results[:limit]
-
-    return {
-        "query": q,
-        "results": results,
-        "total": total,
-        "by_source": {
-            src: len([r for r in results if r["source"] == src])
-            for src in ["conversation", "task", "skill", "audit", "memory"]
-            if any(r["source"] == src for r in results)
-        },
-    }
-
-def api_get_audit_entries():
-    audit_file = BASE_DIR / "audit" / "audit.log"
-    if not audit_file.exists():
-        return []
-    return [json.loads(l) for l in audit_file.read_text().strip().split("\n") if l.strip()]
-
-# ─── 4. Auto-Mode: Agent Self-Scheduling ────────────────────────
-
-AGENT_CAPABILITIES = {
-    "opencode": ["code", "devops", "deploy", "git", "file", "terraform", "docker", "test", "build", "infra", "script", "api"],
-    "hermes": ["memory", "schedule", "channel", "skill", "cron", "reminder", "brain", "plugin", "backup", "orchestrate"],
-    "gemini": ["research", "analyze", "search", "compare", "explain", "study", "learn", "document", "report", "review"],
-    "jcode": ["javascript", "node", "js", "script", "npm", "frontend", "react", "vue", "typescript", "web", "api"],
-}
-
-@app.post("/api/tasks/auto-route")
-def auto_route_task(data: TaskCreate):
-    """Auto-assign a task to the best agent based on capabilities and load."""
-    task_text = (data.title + " " + data.description).lower()
-
-    # Score each agent
-    scores = {}
-    for agent, keywords in AGENT_CAPABILITIES.items():
-        score = sum(1 for k in keywords if k in task_text)
-        # Bonus for explicit agent mention
-        if agent in task_text:
-            score += 3
-        scores[agent] = score
-
-    # Adjust for current load
-    for name in ["opencode", "hermes", "gemini", "jcode"]:
-        active = len([t for t in _active_tasks.values() if t.get("agent") == name and t.get("status") == "running"])
-        scores[name] = scores.get(name, 0) - (active * 0.5)
-
-    best = max(scores, key=scores.get)
-    confidence = "high" if scores[best] >= 2 else "medium" if scores[best] >= 1 else "low"
-
-    # Create task assigned to best agent
-    task = {
-        "id": str(uuid.uuid4())[:8],
-        "title": data.title,
-        "description": data.description,
-        "agent": best,
-        "priority": data.priority,
-        "status": "pending",
-        "progress": 0,
-        "created": get_timestamp(),
-        "started": None,
-        "completed": None,
-        "error": None,
-        "auto_routed": True,
-        "routing_scores": scores,
-        "routing_confidence": confidence,
-    }
-    _task_queue.append(task["id"])
-    _active_tasks[task["id"]] = task
-
-    tasks = _load_json(TASKS_FILE, [])
-    tasks.insert(0, task)
-    if len(tasks) > 200:
-        tasks = tasks[:200]
-    _save_json(TASKS_FILE, tasks)
-
-    OrchestrationEvent.publish({"type": "task_auto_routed", "task": task, "best_agent": best, "confidence": confidence})
-    append_audit({"action": "task_auto_routed", "task_id": task["id"], "agent": best, "confidence": confidence})
-
-    return {
-        "task": task,
-        "routed_to": best,
-        "confidence": confidence,
-        "all_scores": {k: round(v, 1) for k, v in scores.items()},
-    }
-
 
 # ─── Main ─────────────────────────────────────────────────────────
 
