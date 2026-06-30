@@ -290,8 +290,9 @@ async function renderDashboard() {
     document.getElementById('dashStats').innerHTML = `<div class="card" style="grid-column:1/-1;border-color:var(--red)"><div class="empty-state"><div class="empty-state-icon">⚠</div><div class="empty-state-title">Connection Error</div><div class="empty-state-desc">${escapeHtml(err.message)}</div><button class="btn btn-primary mt-3" onclick="navigate('dashboard')">Retry</button></div></div>`;
   }
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 30 seconds — only when on dashboard
   dashInterval = setInterval(() => {
+    if (window.location.hash.replace('#', '') !== 'dashboard') return;
     const dot = document.getElementById('dashLiveDot');
     if (dot) { dot.textContent = 'updating...'; dot.style.color = 'var(--yellow)'; }
     renderDashboard();

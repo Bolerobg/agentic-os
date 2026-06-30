@@ -110,6 +110,8 @@ async function renderChat() {
   window._currentAgent = 'opencode';
   window._chatHistory = [];
   document.getElementById('chatInput').focus();
+  // Prevent hash navigation while on chat
+  if (window._dashInterval) { clearInterval(window._dashInterval); window._dashInterval = null; }
 
   // Update agent status indicators
   try {
@@ -166,7 +168,9 @@ function updateAgentStatusText() {
 function handleChatKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
+    e.stopPropagation();
     sendChatMessage();
+    return false;
   }
   autoResizeTextarea(e.target);
 }
@@ -226,14 +230,14 @@ async function sendChatMessage() {
     // Foreground renderer: pulls from queue with animation-friendly timing
     while (streaming || tokenQueue.length > 0) {
       if (tokenQueue.length > 0) {
-        const batch = tokenQueue.splice(0, 3).join('');
+        const batch = tokenQueue.splice(0, 2).join('');
         if (contentEl) {
           contentEl.textContent += batch;
           const msgs = document.getElementById('chatMessages');
           if (msgs) msgs.scrollTop = msgs.scrollHeight;
         }
       }
-      await new Promise(r => setTimeout(r, 10)); // Let browser paint
+      await new Promise(r => setTimeout(r, 40)); // Let browser paint
     }
   } catch (err) {
     if (contentEl) contentEl.textContent = '⚠ ' + err.message;
