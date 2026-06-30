@@ -3,28 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Дигитално Решение - Трансформирайте Вашия Бизнес</title>
+    <title>ДигиталМаркет Про | Автоматизиран маркетинг за вашия бизнес</title>
     <style>
         :root {
-            --primary: #4F46E5;
-            --primary-dark: #3730A3;
-            --secondary: #7C3AED;
-            --accent: #F59E0B;
-            --dark: #1E293B;
-            --gray: #64748B;
-            --light-gray: #F1F5F9;
-            --white: #FFFFFF;
-            --gradient: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
-            --gradient-light: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --primary-light: #6366f1;
+            --accent: #f59e0b;
+            --accent-hover: #d97706;
+            --bg-light: #f8fafc;
+            --bg-white: #ffffff;
+            --text-dark: #1e293b;
+            --text-medium: #475569;
+            --text-light: #64748b;
+            --border: #e2e8f0;
             --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
             --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
-            --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.10), 0 8px 16px rgba(0, 0, 0, 0.06);
-            --shadow-xl: 0 25px 50px rgba(79, 70, 229, 0.18), 0 10px 20px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.08);
+            --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.08);
             --radius-sm: 8px;
             --radius-md: 12px;
-            --radius-lg: 20px;
-            --radius-xl: 28px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --max-width: 1200px;
         }
 
         * {
@@ -35,131 +37,114 @@
 
         html {
             scroll-behavior: smooth;
-            font-size: 16px;
         }
 
         body {
-            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-            color: var(--dark);
-            background-color: var(--white);
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text-dark);
+            background-color: var(--bg-white);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             overflow-x: hidden;
         }
 
-        /* ========== NAVIGATION ========== */
+        /* ============ NAVIGATION ============ */
         .nav {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.88);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
             border-bottom: 1px solid rgba(226, 232, 240, 0.7);
             transition: var(--transition);
-            padding: 0 16px;
+            padding: 0 20px;
         }
-
         .nav.scrolled {
             box-shadow: var(--shadow-md);
-            background: rgba(255, 255, 255, 0.96);
+            background: rgba(255, 255, 255, 0.95);
         }
-
         .nav-inner {
-            max-width: 1200px;
+            max-width: var(--max-width);
             margin: 0 auto;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            height: 64px;
+            height: 68px;
         }
-
         .nav-logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            font-size: 1.5rem;
             font-weight: 800;
-            font-size: 1.35rem;
             color: var(--primary);
             text-decoration: none;
             letter-spacing: -0.5px;
-            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-
         .nav-logo .logo-icon {
-            width: 38px;
-            height: 38px;
-            background: var(--gradient);
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
             border-radius: var(--radius-sm);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 1.2rem;
-            flex-shrink: 0;
+            color: #fff;
+            font-size: 1.1rem;
         }
-
         .nav-links {
             display: flex;
             align-items: center;
-            gap: 32px;
+            gap: 28px;
             list-style: none;
         }
-
         .nav-links a {
             text-decoration: none;
-            color: var(--gray);
+            color: var(--text-medium);
             font-weight: 500;
             font-size: 0.95rem;
             transition: var(--transition);
             position: relative;
-            padding: 4px 0;
         }
-
+        .nav-links a:hover {
+            color: var(--primary);
+        }
         .nav-links a::after {
             content: '';
             position: absolute;
-            bottom: -2px;
+            bottom: -4px;
             left: 0;
             width: 0;
             height: 2px;
             background: var(--primary);
+            transition: var(--transition);
             border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary);
         }
         .nav-links a:hover::after {
             width: 100%;
         }
-
         .nav-cta {
-            background: var(--gradient);
-            color: var(--white) !important;
-            padding: 10px 22px !important;
-            border-radius: 50px !important;
+            background: var(--primary);
+            color: #fff !important;
+            padding: 10px 22px;
+            border-radius: 50px;
             font-weight: 600 !important;
-            transition: var(--transition) !important;
-            box-shadow: var(--shadow-md);
-            white-space: nowrap;
-            text-decoration: none;
+            transition: var(--transition);
             font-size: 0.9rem !important;
+            white-space: nowrap;
+        }
+        .nav-cta:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
         }
         .nav-cta::after {
             display: none !important;
         }
-        .nav-cta:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-xl);
-            color: var(--white) !important;
-        }
-
-        /* Mobile menu */
         .hamburger {
             display: none;
             flex-direction: column;
@@ -170,16 +155,14 @@
             padding: 8px;
             z-index: 1001;
         }
-
         .hamburger span {
             display: block;
             width: 26px;
             height: 2.5px;
-            background: var(--dark);
+            background: var(--text-dark);
             border-radius: 3px;
             transition: var(--transition);
         }
-
         .hamburger.active span:nth-child(1) {
             transform: rotate(45deg) translate(5px, 5px);
         }
@@ -190,158 +173,129 @@
             transform: rotate(-45deg) translate(5px, -5px);
         }
 
-        /* ========== HERO SECTION ========== */
+        /* ============ HERO ============ */
         .hero {
-            padding: 140px 16px 100px;
-            background: var(--gradient-light);
+            padding: 140px 20px 80px;
+            background: linear-gradient(170deg, #eef2ff 0%, #f8fafc 30%, #ffffff 70%, #fefce8 100%);
             position: relative;
             overflow: hidden;
-            min-height: 90vh;
-            display: flex;
-            align-items: center;
         }
-
         .hero::before {
             content: '';
             position: absolute;
-            top: -250px;
-            right: -200px;
-            width: 650px;
-            height: 650px;
-            background: radial-gradient(circle, rgba(124, 58, 237, 0.10) 0%, transparent 70%);
+            top: -200px;
+            right: -150px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
             border-radius: 50%;
             pointer-events: none;
         }
         .hero::after {
             content: '';
             position: absolute;
-            bottom: -200px;
-            left: -150px;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(79, 70, 229, 0.08) 0%, transparent 70%);
+            bottom: -100px;
+            left: -100px;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.07) 0%, transparent 70%);
             border-radius: 50%;
             pointer-events: none;
         }
-
         .hero-inner {
-            max-width: 1200px;
+            max-width: var(--max-width);
             margin: 0 auto;
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 60px;
+            gap: 50px;
             align-items: center;
             position: relative;
             z-index: 1;
         }
-
-        .hero-text {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
         .hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: var(--white);
-            border: 1px solid #E2E8F0;
-            padding: 8px 16px;
+            background: #fff;
+            border: 1px solid var(--border);
             border-radius: 50px;
+            padding: 6px 16px;
             font-size: 0.85rem;
             font-weight: 600;
             color: var(--primary);
-            width: fit-content;
+            margin-bottom: 20px;
             box-shadow: var(--shadow-sm);
         }
-
-        .hero-badge .badge-dot {
+        .hero-badge .dot {
             width: 8px;
             height: 8px;
-            background: #10B981;
+            background: #22c55e;
             border-radius: 50%;
             animation: pulse-dot 2s infinite;
         }
-
         @keyframes pulse-dot {
             0%,
             100% {
-                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
             }
             50% {
-                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+                box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
             }
         }
-
         .hero h1 {
             font-size: 3.2rem;
             font-weight: 800;
             line-height: 1.15;
-            letter-spacing: -1.5px;
-            color: #0F172A;
+            letter-spacing: -1px;
+            color: var(--text-dark);
+            margin-bottom: 20px;
         }
-
         .hero h1 .highlight {
-            background: var(--gradient);
+            background: linear-gradient(135deg, var(--primary), #818cf8);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-
         .hero p {
             font-size: 1.15rem;
-            color: var(--gray);
-            line-height: 1.7;
+            color: var(--text-light);
+            margin-bottom: 32px;
             max-width: 480px;
+            line-height: 1.7;
         }
-
         .hero-buttons {
             display: flex;
             gap: 14px;
             flex-wrap: wrap;
-            margin-top: 8px;
         }
-
-        .btn-primary {
-            background: var(--gradient);
-            color: var(--white);
-            padding: 15px 32px;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 1rem;
-            text-decoration: none;
+        .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            border: none;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: var(--shadow-lg);
-            white-space: nowrap;
-            letter-spacing: -0.2px;
-        }
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-xl);
-        }
-
-        .btn-secondary {
-            background: var(--white);
-            color: var(--dark);
-            padding: 15px 32px;
+            padding: 14px 28px;
             border-radius: 50px;
             font-weight: 600;
             font-size: 1rem;
             text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            border: 2px solid #E2E8F0;
             cursor: pointer;
+            border: none;
             transition: var(--transition);
             white-space: nowrap;
-            letter-spacing: -0.2px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: var(--shadow-md);
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+        .btn-secondary {
+            background: #fff;
+            color: var(--text-dark);
+            border: 2px solid var(--border);
         }
         .btn-secondary:hover {
             border-color: var(--primary);
@@ -349,342 +303,223 @@
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
         }
-
-        .hero-visual {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
+        .btn-accent {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: var(--shadow-md);
         }
-
-        .hero-card {
-            background: var(--white);
-            border-radius: var(--radius-xl);
-            padding: 36px 28px;
+        .btn-accent:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
             box-shadow: var(--shadow-xl);
+        }
+        .hero-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .hero-image-placeholder {
             width: 100%;
-            max-width: 420px;
-            border: 1px solid rgba(226, 232, 240, 0.8);
+            max-width: 500px;
+            aspect-ratio: 1 / 1;
+            background: linear-gradient(145deg, #ffffff, #f1f5f9);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-xl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6rem;
             position: relative;
+            border: 1px solid rgba(226, 232, 240, 0.6);
         }
-
-        .hero-card .card-header {
+        .hero-image-placeholder .icon-main {
+            font-size: 7rem;
+            opacity: 0.9;
+        }
+        .hero-stats {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 24px;
+            margin-top: 24px;
+            flex-wrap: wrap;
         }
-        .hero-card .card-avatar {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: var(--gradient);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 1.1rem;
+        .hero-stat {
+            text-align: center;
         }
-        .hero-card .card-stars {
-            color: #F59E0B;
-            font-size: 0.9rem;
-            letter-spacing: 2px;
+        .hero-stat .number {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--primary);
         }
-        .hero-card .card-bar {
-            height: 8px;
-            background: #E2E8F0;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        .hero-card .card-bar.fill {
-            background: var(--gradient);
-            width: 78%;
-            border-radius: 4px;
-        }
-        .hero-card .card-bar.fill2 {
-            background: var(--gradient);
-            width: 62%;
-            border-radius: 4px;
-        }
-        .hero-card .card-bar.fill3 {
-            background: var(--gradient);
-            width: 89%;
-            border-radius: 4px;
-        }
-        .hero-card .card-row {
-            display: flex;
-            justify-content: space-between;
+        .hero-stat .label {
             font-size: 0.8rem;
-            color: var(--gray);
-            margin-bottom: 4px;
-        }
-
-        .hero-float-badge {
-            position: absolute;
-            top: -20px;
-            right: -20px;
-            background: var(--white);
-            border-radius: var(--radius-md);
-            padding: 14px 18px;
-            box-shadow: var(--shadow-lg);
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: #10B981;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid #E2E8F0;
-        }
-
-        /* ========== TRUST BAR ========== */
-        .trust-bar {
-            padding: 32px 16px;
-            background: var(--white);
-            border-bottom: 1px solid #F1F5F9;
-        }
-        .trust-bar-inner {
-            max-width: 1100px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 40px;
-            flex-wrap: wrap;
-        }
-        .trust-bar span {
-            font-size: 0.85rem;
-            color: var(--gray);
+            color: var(--text-light);
             font-weight: 500;
-            white-space: nowrap;
-        }
-        .trust-bar .trust-logos {
-            display: flex;
-            gap: 30px;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .trust-bar .trust-logos .tl {
-            font-weight: 700;
-            color: #94A3B8;
-            font-size: 1.1rem;
-            letter-spacing: -0.5px;
-            white-space: nowrap;
         }
 
-        /* ========== FEATURES SECTION ========== */
-        .features {
-            padding: 100px 16px;
-            background: var(--white);
-        }
-        .features-inner {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* ============ SECTION STYLES ============ */
+        section {
+            padding: 80px 20px;
         }
         .section-header {
             text-align: center;
-            margin-bottom: 64px;
+            margin-bottom: 56px;
         }
         .section-header .section-tag {
             display: inline-block;
-            background: #EEF2FF;
+            background: #eef2ff;
             color: var(--primary);
-            padding: 6px 16px;
-            border-radius: 50px;
             font-weight: 600;
             font-size: 0.85rem;
-            margin-bottom: 16px;
+            padding: 6px 16px;
+            border-radius: 50px;
+            margin-bottom: 14px;
+            letter-spacing: 0.5px;
         }
         .section-header h2 {
-            font-size: 2.5rem;
+            font-size: 2.4rem;
             font-weight: 800;
-            letter-spacing: -1px;
-            color: #0F172A;
+            letter-spacing: -0.5px;
+            color: var(--text-dark);
             margin-bottom: 12px;
         }
         .section-header p {
-            color: var(--gray);
-            font-size: 1.1rem;
-            max-width: 560px;
+            color: var(--text-light);
+            font-size: 1.05rem;
+            max-width: 550px;
+            margin: 0 auto;
+        }
+        .container {
+            max-width: var(--max-width);
             margin: 0 auto;
         }
 
+        /* ============ FEATURES ============ */
         .features-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 24px;
         }
         .feature-card {
-            background: var(--white);
-            border: 1px solid #E2E8F0;
+            background: #fff;
+            border: 1px solid var(--border);
             border-radius: var(--radius-lg);
-            padding: 32px 24px;
+            padding: 32px 26px;
             transition: var(--transition);
             position: relative;
             overflow: hidden;
         }
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--gradient);
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.4s ease;
-        }
-        .feature-card:hover::before {
-            transform: scaleX(1);
-        }
         .feature-card:hover {
-            border-color: #C7D2FE;
+            transform: translateY(-6px);
             box-shadow: var(--shadow-lg);
-            transform: translateY(-4px);
+            border-color: transparent;
         }
-        .feature-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: var(--radius-sm);
-            background: var(--gradient-light);
+        .feature-card .feature-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-md);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             margin-bottom: 18px;
+            background: #eef2ff;
         }
         .feature-card h3 {
             font-size: 1.2rem;
             font-weight: 700;
             margin-bottom: 8px;
-            color: #0F172A;
+            color: var(--text-dark);
         }
         .feature-card p {
-            color: var(--gray);
-            font-size: 0.95rem;
+            color: var(--text-light);
+            font-size: 0.92rem;
             line-height: 1.6;
         }
 
-        /* ========== HOW IT WORKS ========== */
-        .how-it-works {
-            padding: 100px 16px;
-            background: var(--gradient-light);
-        }
-        .how-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .steps-grid {
+        /* ============ HOW IT WORKS ============ */
+        .steps {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 32px;
+            gap: 28px;
+            position: relative;
         }
         .step-card {
             text-align: center;
+            padding: 28px 20px;
             position: relative;
-            padding: 0 12px;
         }
         .step-number {
-            width: 60px;
-            height: 60px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
-            background: var(--gradient);
-            color: white;
-            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: #fff;
             font-size: 1.4rem;
+            font-weight: 800;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 20px;
-            box-shadow: var(--shadow-lg);
+            margin: 0 auto 18px;
+            box-shadow: var(--shadow-md);
         }
         .step-card h3 {
             font-weight: 700;
-            font-size: 1.15rem;
-            margin-bottom: 8px;
-            color: #0F172A;
+            margin-bottom: 6px;
         }
         .step-card p {
-            color: var(--gray);
-            font-size: 0.95rem;
-            line-height: 1.6;
+            color: var(--text-light);
+            font-size: 0.9rem;
         }
-        .step-connector {
+        .steps-connector {
             display: none;
         }
 
-        /* ========== TESTIMONIALS ========== */
-        .testimonials {
-            padding: 100px 16px;
-            background: var(--white);
-        }
-        .testimonials-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        /* ============ TESTIMONIALS ============ */
         .testimonials-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 24px;
         }
         .testimonial-card {
-            background: var(--white);
-            border: 1px solid #E2E8F0;
+            background: #fff;
+            border: 1px solid var(--border);
             border-radius: var(--radius-lg);
             padding: 28px 24px;
             transition: var(--transition);
         }
         .testimonial-card:hover {
             box-shadow: var(--shadow-lg);
-            border-color: #C7D2FE;
+            border-color: transparent;
         }
-        .testimonial-card .t-stars {
-            color: #F59E0B;
-            font-size: 0.9rem;
-            letter-spacing: 2px;
+        .testimonial-card .stars {
+            color: #f59e0b;
+            font-size: 1rem;
             margin-bottom: 12px;
+            letter-spacing: 2px;
         }
-        .testimonial-card p {
-            color: var(--dark);
-            font-size: 0.95rem;
-            line-height: 1.7;
-            margin-bottom: 16px;
+        .testimonial-card .quote {
             font-style: italic;
+            color: var(--text-medium);
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+            line-height: 1.6;
         }
-        .testimonial-card .t-author {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .testimonial-card .t-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--gradient-light);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .testimonial-card .author {
             font-weight: 700;
-            color: var(--primary);
+            color: var(--text-dark);
             font-size: 0.9rem;
-            flex-shrink: 0;
         }
-        .testimonial-card .t-name {
-            font-weight: 700;
-            font-size: 0.9rem;
-            color: #0F172A;
-        }
-        .testimonial-card .t-role {
+        .testimonial-card .author-role {
+            color: var(--text-light);
             font-size: 0.8rem;
-            color: var(--gray);
         }
 
-        /* ========== CTA SECTION ========== */
+        /* ============ CTA SECTION ============ */
         .cta-section {
-            padding: 100px 16px;
-            background: var(--gradient);
+            background: linear-gradient(150deg, #312e81 0%, #4f46e5 40%, #6366f1 100%);
+            color: #fff;
+            text-align: center;
+            padding: 80px 20px;
             position: relative;
             overflow: hidden;
         }
@@ -693,169 +528,231 @@
             position: absolute;
             top: -100px;
             right: -100px;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+            width: 350px;
+            height: 350px;
+            background: rgba(255, 255, 255, 0.04);
             border-radius: 50%;
             pointer-events: none;
         }
         .cta-section::after {
             content: '';
             position: absolute;
-            bottom: -120px;
+            bottom: -80px;
             left: -80px;
-            width: 350px;
-            height: 350px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.06) 0%, transparent 70%);
+            width: 280px;
+            height: 280px;
+            background: rgba(255, 255, 255, 0.03);
             border-radius: 50%;
             pointer-events: none;
         }
-        .cta-inner {
-            max-width: 700px;
-            margin: 0 auto;
-            text-align: center;
+        .cta-section .container {
             position: relative;
             z-index: 1;
         }
-        .cta-inner h2 {
-            font-size: 2.6rem;
+        .cta-section h2 {
+            font-size: 2.5rem;
             font-weight: 800;
-            color: white;
-            letter-spacing: -1px;
-            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+            margin-bottom: 14px;
         }
-        .cta-inner p {
-            color: rgba(255, 255, 255, 0.85);
-            font-size: 1.15rem;
-            margin-bottom: 32px;
+        .cta-section p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 500px;
+            margin: 0 auto 32px;
             line-height: 1.7;
         }
-        .btn-white {
-            background: var(--white);
-            color: var(--primary);
+        .cta-section .btn-accent {
+            font-size: 1.1rem;
             padding: 16px 36px;
-            border-radius: 50px;
-            font-weight: 700;
-            font-size: 1.05rem;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: var(--transition);
-            box-shadow: var(--shadow-lg);
-            border: none;
-            cursor: pointer;
-            white-space: nowrap;
+            box-shadow: 0 8px 30px rgba(245, 158, 11, 0.35);
         }
-        .btn-white:hover {
+        .cta-section .btn-accent:hover {
+            box-shadow: 0 12px 40px rgba(245, 158, 11, 0.5);
             transform: translateY(-3px);
-            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.2);
         }
-        .cta-guarantee {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 20px;
-            color: rgba(255, 255, 255, 0.75);
+        .cta-note {
+            margin-top: 16px;
             font-size: 0.85rem;
+            opacity: 0.7;
         }
 
-        /* ========== FOOTER ========== */
-        .footer {
-            padding: 60px 16px 30px;
-            background: #0F172A;
-            color: #CBD5E1;
+        /* ============ PRICING ============ */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            align-items: start;
         }
-        .footer-inner {
-            max-width: 1200px;
+        .pricing-card {
+            background: #fff;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 36px 28px;
+            text-align: center;
+            transition: var(--transition);
+            position: relative;
+        }
+        .pricing-card.featured {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg);
+            transform: scale(1.03);
+            z-index: 2;
+        }
+        .pricing-card.featured .badge-popular {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 6px 18px;
+            border-radius: 50px;
+            letter-spacing: 0.5px;
+        }
+        .pricing-card h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .pricing-card .price {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 10px 0;
+        }
+        .pricing-card .price span {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+        .pricing-card ul {
+            list-style: none;
+            margin: 20px 0 28px;
+            text-align: left;
+        }
+        .pricing-card ul li {
+            padding: 6px 0;
+            color: var(--text-medium);
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pricing-card ul li::before {
+            content: '✓';
+            color: #22c55e;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .pricing-card .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* ============ FOOTER ============ */
+        .footer {
+            background: #0f172a;
+            color: #cbd5e1;
+            padding: 56px 20px 28px;
+        }
+        .footer-grid {
+            max-width: var(--max-width);
             margin: 0 auto;
             display: grid;
             grid-template-columns: 2fr 1fr 1fr 1fr;
             gap: 40px;
+            margin-bottom: 40px;
         }
         .footer-col h4 {
-            color: white;
+            color: #fff;
             font-weight: 700;
             margin-bottom: 16px;
-            font-size: 0.95rem;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            font-size: 1rem;
         }
-        .footer-col a {
-            display: block;
-            color: #94A3B8;
+        .footer-col ul {
+            list-style: none;
+        }
+        .footer-col ul li {
+            margin-bottom: 8px;
+        }
+        .footer-col ul li a {
+            color: #94a3b8;
             text-decoration: none;
             font-size: 0.9rem;
-            margin-bottom: 10px;
             transition: var(--transition);
         }
-        .footer-col a:hover {
-            color: white;
+        .footer-col ul li a:hover {
+            color: #fff;
+        }
+        .footer-col .footer-logo {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 10px;
+            display: block;
+            text-decoration: none;
         }
         .footer-col p {
             font-size: 0.9rem;
-            line-height: 1.7;
-            color: #94A3B8;
-            margin-bottom: 8px;
-        }
-        .footer-logo {
-            font-weight: 800;
-            font-size: 1.3rem;
-            color: white;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            color: #94a3b8;
+            line-height: 1.6;
         }
         .footer-bottom {
-            max-width: 1200px;
-            margin: 40px auto 0;
-            padding-top: 24px;
-            border-top: 1px solid #1E293B;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 20px;
             text-align: center;
             font-size: 0.85rem;
-            color: #64748B;
+            color: #64748b;
         }
 
-        /* ========== RESPONSIVE ========== */
+        /* ============ RESPONSIVE ============ */
         @media (max-width: 1024px) {
             .hero-inner {
                 grid-template-columns: 1fr;
-                gap: 40px;
                 text-align: center;
-            }
-            .hero-text {
-                align-items: center;
-            }
-            .hero h1 {
-                font-size: 2.6rem;
+                gap: 36px;
             }
             .hero p {
                 max-width: 100%;
+                margin-left: auto;
+                margin-right: auto;
             }
-            .hero-visual {
-                order: -1;
+            .hero-buttons {
+                justify-content: center;
             }
-            .hero-card {
-                max-width: 340px;
+            .hero-stats {
+                justify-content: center;
             }
-            .hero-float-badge {
-                right: 0;
-                top: -10px;
+            .hero-image-placeholder {
+                max-width: 350px;
+                margin: 0 auto;
             }
-            .features-grid {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            .features-grid,
+            .testimonials-grid,
+            .pricing-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
-            .steps-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 24px;
+            .pricing-card.featured {
+                transform: none;
             }
-            .testimonials-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .footer-inner {
+            .footer-grid {
                 grid-template-columns: 1fr 1fr;
+            }
+            .steps {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .step-card:nth-child(3) {
+                grid-column: 1 / -1;
+                max-width: 350px;
+                justify-self: center;
             }
         }
 
@@ -864,29 +761,24 @@
                 position: fixed;
                 top: 0;
                 right: -100%;
-                width: 75%;
-                max-width: 320px;
+                width: 280px;
                 height: 100vh;
-                background: white;
+                background: #fff;
                 flex-direction: column;
                 padding: 90px 30px 30px;
-                gap: 24px;
+                gap: 20px;
                 box-shadow: var(--shadow-xl);
-                transition: right 0.4s ease;
+                transition: var(--transition);
                 z-index: 999;
             }
             .nav-links.active {
                 right: 0;
             }
-            .nav-links a {
-                font-size: 1.05rem;
-            }
             .hamburger {
                 display: flex;
             }
             .hero {
-                padding: 100px 16px 60px;
-                min-height: auto;
+                padding: 110px 16px 50px;
             }
             .hero h1 {
                 font-size: 2rem;
@@ -894,53 +786,57 @@
             .hero p {
                 font-size: 1rem;
             }
-            .hero-buttons {
-                flex-direction: column;
-                width: 100%;
+            .hero-image-placeholder {
+                max-width: 260px;
+                font-size: 4rem;
             }
-            .btn-primary,
-            .btn-secondary {
-                justify-content: center;
-                width: 100%;
-                text-align: center;
+            .hero-image-placeholder .icon-main {
+                font-size: 4.5rem;
             }
-            .hero-card {
-                max-width: 280px;
-                padding: 24px 18px;
+            section {
+                padding: 50px 16px;
             }
-            .hero-float-badge {
-                font-size: 0.75rem;
-                padding: 10px 14px;
-                right: -5px;
-                top: -15px;
+            .section-header h2 {
+                font-size: 1.7rem;
             }
-            .features-grid {
+            .features-grid,
+            .testimonials-grid,
+            .pricing-grid {
                 grid-template-columns: 1fr;
                 gap: 16px;
             }
-            .steps-grid {
+            .pricing-card.featured {
+                transform: none;
+            }
+            .steps {
                 grid-template-columns: 1fr;
-                gap: 20px;
+                gap: 8px;
             }
-            .testimonials-grid {
-                grid-template-columns: 1fr;
+            .step-card:nth-child(3) {
+                grid-column: auto;
+                max-width: 100%;
             }
-            .section-header h2 {
-                font-size: 1.8rem;
-            }
-            .cta-inner h2 {
-                font-size: 1.8rem;
-            }
-            .footer-inner {
+            .footer-grid {
                 grid-template-columns: 1fr;
                 gap: 28px;
             }
-            .trust-bar-inner {
-                flex-direction: column;
-                gap: 16px;
-                text-align: center;
+            .cta-section h2 {
+                font-size: 1.8rem;
             }
-            .trust-bar .trust-logos {
+            .btn {
+                padding: 12px 22px;
+                font-size: 0.9rem;
+            }
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            .hero-buttons .btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+            .hero-stats {
                 gap: 16px;
             }
         }
@@ -948,66 +844,77 @@
         @media (max-width: 480px) {
             .hero h1 {
                 font-size: 1.7rem;
+                letter-spacing: 0;
             }
             .hero p {
                 font-size: 0.9rem;
             }
-            .hero-card {
-                max-width: 240px;
-                padding: 18px 14px;
+            .hero-image-placeholder {
+                max-width: 200px;
+                font-size: 3rem;
             }
-            .hero-float-badge {
-                font-size: 0.7rem;
-                padding: 8px 10px;
+            .hero-image-placeholder .icon-main {
+                font-size: 3.5rem;
             }
             .section-header h2 {
-                font-size: 1.5rem;
-            }
-            .btn-primary,
-            .btn-secondary {
-                padding: 13px 20px;
-                font-size: 0.9rem;
+                font-size: 1.4rem;
             }
             .nav-logo {
-                font-size: 1.1rem;
+                font-size: 1.2rem;
             }
             .nav-logo .logo-icon {
                 width: 30px;
                 height: 30px;
-                font-size: 1rem;
+                font-size: 0.9rem;
+            }
+            .pricing-card .price {
+                font-size: 2.2rem;
+            }
+            .cta-section h2 {
+                font-size: 1.5rem;
             }
         }
 
-        /* Overlay for mobile menu */
-        .nav-overlay {
+        /* Mobile overlay */
+        .mobile-overlay {
             display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.35);
+            background: rgba(0, 0, 0, 0.45);
             z-index: 998;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.3s;
         }
-        .nav-overlay.active {
+        .mobile-overlay.active {
             display: block;
+        }
+
+        @media (min-width: 769px) {
+            .mobile-overlay.active {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- NAVIGATION -->
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobileOverlay"></div>
+
+    <!-- ============ NAVIGATION ============ -->
     <nav class="nav" id="navbar">
         <div class="nav-inner">
             <a href="#" class="nav-logo">
-                <span class="logo-icon">◆</span> ДигиталноРешение
+                <span class="logo-icon">🚀</span> ДигиталМаркет
             </a>
             <ul class="nav-links" id="navLinks">
-                <li><a href="#features">Функционалности</a></li>
-                <li><a href="#how">Как Работи</a></li>
+                <li><a href="#features">Функции</a></li>
+                <li><a href="#how-it-works">Как работи</a></li>
                 <li><a href="#testimonials">Отзиви</a></li>
-                <li><a href="#cta" class="nav-cta">Започни Сега</a></li>
+                <li><a href="#pricing">Цени</a></li>
+                <li><a href="#cta" class="nav-cta">Започни безплатно</a></li>
             </ul>
             <button class="hamburger" id="hamburger" aria-label="Меню">
                 <span></span>
@@ -1016,244 +923,270 @@
             </button>
         </div>
     </nav>
-    <div class="nav-overlay" id="navOverlay"></div>
 
-    <!-- HERO SECTION -->
+    <!-- ============ HERO ============ -->
     <section class="hero" id="hero">
         <div class="hero-inner">
-            <div class="hero-text">
+            <div class="hero-content">
                 <div class="hero-badge">
-                    <span class="badge-dot"></span> Над 10 000 доволни клиенти
+                    <span class="dot"></span> Над 5,000 доволни клиенти
                 </div>
-                <h1>Трансформирайте Вашия <span class="highlight">Бизнес</span> с Интелигентни Решения</h1>
-                <p>Модерна платформа, която автоматизира процесите, увеличава продажбите и спестява време. Всичко, от което се нуждаете — на едно място.</p>
+                <h1>Автоматизирай маркетинга си с <span class="highlight">AI мощност</span></h1>
+                <p>ДигиталМаркет Про ти помага да създаваш, управляваш и оптимизираш всичките си маркетинг кампании от едно място. Спести време, увеличи продажбите.</p>
                 <div class="hero-buttons">
-                    <a href="#cta" class="btn-primary">🚀 Стартирай Безплатно</a>
-                    <a href="#features" class="btn-secondary">📖 Научи Повече</a>
+                    <a href="#cta" class="btn btn-primary">🚀 Стартирай безплатен пробен период</a>
+                    <a href="#how-it-works" class="btn btn-secondary">▶️ Виж как работи</a>
+                </div>
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <div class="number">98%</div>
+                        <div class="label">Клиентска удовлетвореност</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="number">3x</div>
+                        <div class="label">По-бърз растеж</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="number">24/7</div>
+                        <div class="label">Поддръжка</div>
+                    </div>
                 </div>
             </div>
-            <div class="hero-visual">
-                <div class="hero-card">
-                    <div class="card-header">
-                        <div class="card-avatar">АБ</div>
-                        <div>
-                            <strong style="display:block;font-size:0.9rem;">Анализ на Растеж</strong>
-                            <span style="font-size:0.75rem;color:#64748B;">Последните 30 дни</span>
-                        </div>
-                        <span style="margin-left:auto;font-weight:700;color:#10B981;">+28%</span>
-                    </div>
-                    <div class="card-row"><span>Продажби</span><span>78%</span></div>
-                    <div class="card-bar fill"></div>
-                    <div class="card-row"><span>Трафик</span><span>62%</span></div>
-                    <div class="card-bar fill2"></div>
-                    <div class="card-row"><span>Конверсии</span><span>89%</span></div>
-                    <div class="card-bar fill3"></div>
-                    <div style="margin-top:14px;display:flex;justify-content:space-between;font-size:0.8rem;color:#64748B;">
-                        <span>📊 +156 продажби</span><span>⭐ 4.9 / 5.0</span>
-                    </div>
+            <div class="hero-image">
+                <div class="hero-image-placeholder">
+                    <span class="icon-main">📊</span>
                 </div>
-                <div class="hero-float-badge">🏆 #1 в България</div>
             </div>
         </div>
     </section>
 
-    <!-- TRUST BAR -->
-    <div class="trust-bar">
-        <div class="trust-bar-inner">
-            <span>Доверен от компании като:</span>
-            <div class="trust-logos">
-                <span class="tl">TechCorp</span>
-                <span class="tl">SmartBiz</span>
-                <span class="tl">GrowthLab</span>
-                <span class="tl">DigitalPro</span>
-                <span class="tl">InnovateBG</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- FEATURES SECTION -->
-    <section class="features" id="features">
-        <div class="features-inner">
+    <!-- ============ FEATURES ============ -->
+    <section id="features">
+        <div class="container">
             <div class="section-header">
-                <span class="section-tag">⚡ Функционалности</span>
-                <h2>Всичко, от Което Се Нуждаете</h2>
-                <p>Мощни инструменти, проектирани да ускорят растежа на вашия бизнес и да опростят ежедневните задачи.</p>
+                <span class="section-tag">⚡ Функции</span>
+                <h2>Всичко, от което се нуждаеш</h2>
+                <p>Мощни инструменти, които правят маркетинга лесен и ефективен за всеки бизнес.</p>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h3>Разширен Анализ</h3>
-                    <p>Данни в реално време, интелигентни отчети и прогнози, които ви помагат да вземате информирани решения за вашия бизнес.</p>
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI Генериране на съдържание</h3>
+                    <p>Създавай ангажиращи публикации, имейли и рекламни текстове за секунди с нашия интелигентен асистент.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Автоматизация</h3>
-                    <p>Автоматизирайте повтарящи се задачи, спестете часове работа и фокусирайте екипа си върху стратегически приоритети.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔒</div>
-                    <h3>Сигурност на Данните</h3>
-                    <p>Криптиране от световна класа, многофакторно удостоверяване и пълно съответствие с европейските регулации.</p>
+                    <div class="feature-icon">📈</div>
+                    <h3>Анализи в реално време</h3>
+                    <p>Проследявай ефективността на всяка кампания с детайлни графики и отчети, достъпни 24/7.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🎯</div>
-                    <h3>Персонализация</h3>
-                    <p>Адаптирайте платформата спрямо нуждите на вашия бизнес с гъвкави настройки и персонализирани потоци.</p>
+                    <h3>Сегментиране на аудитория</h3>
+                    <p>Таргетирай точните хора с прецизни сегменти, базирани на поведение, интереси и демография.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h3>Мобилен Достъп</h3>
-                    <p>Управлявайте бизнеса си отвсякъде с напълно оптимизирано мобилно приложение за iOS и Android.</p>
+                    <div class="feature-icon">📧</div>
+                    <h3>Имейл автоматизация</h3>
+                    <p>Изграждай сложни имейл поредици, които се задействат автоматично при действие на потребителя.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">💬</div>
-                    <h3>24/7 Поддръжка</h3>
-                    <p>Специализиран екип от експерти, готови да ви помогнат по всяко време — на български и английски език.</p>
+                    <div class="feature-icon">🔗</div>
+                    <h3>Интеграции с топ платформи</h3>
+                    <p>Свържи се безпроблемно с Facebook, Instagram, Google Ads, Shopify, WordPress и още 50+ инструмента.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>GDPR & Сигурност</h3>
+                    <p>Твоите данни са защитени с най-високите стандарти за сигурност и напълно съвместими с GDPR.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- HOW IT WORKS -->
-    <section class="how-it-works" id="how">
-        <div class="how-inner">
+    <!-- ============ HOW IT WORKS ============ -->
+    <section id="how-it-works" style="background: var(--bg-light);">
+        <div class="container">
             <div class="section-header">
-                <span class="section-tag">🔄 Процес</span>
-                <h2>Как Работи?</h2>
-                <p>Само 3 лесни стъпки, за да започнете да трансформирате вашия бизнес още днес.</p>
+                <span class="section-tag">🔄 Как работи</span>
+                <h2>Само 3 лесни стъпки</h2>
+                <p>Започни да автоматизираш маркетинга си за по-малко от 5 минути.</p>
             </div>
-            <div class="steps-grid">
+            <div class="steps">
                 <div class="step-card">
                     <div class="step-number">1</div>
-                    <h3>Регистрирайте Се</h3>
-                    <p>Създайте безплатен акаунт за по-малко от минута. Без нужда от кредитна карта и скрити условия.</p>
+                    <h3>Регистрирай се</h3>
+                    <p>Създай своя безплатен акаунт с имейл или Google профил. Без нужда от кредитна карта.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">2</div>
-                    <h3>Настройте Платформата</h3>
-                    <p>Свържете вашите канали и данни. Нашият интелигентен асистент ви води стъпка по стъпка.</p>
+                    <h3>Свържи каналите си</h3>
+                    <p>Интегрирай социалните мрежи, имейл платформата и уебсайта си с едно кликване.</p>
                 </div>
                 <div class="step-card">
                     <div class="step-number">3</div>
-                    <h3>Наблюдавайте Растежа</h3>
-                    <p>Отпуснете се и гледайте как бизнесът ви расте с автоматизирани процеси и интелигентни анализи.</p>
+                    <h3>Стартирай кампании</h3>
+                    <p>Използвай AI шаблони или създай свои кампании и гледай как резултатите идват автоматично.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- TESTIMONIALS -->
-    <section class="testimonials" id="testimonials">
-        <div class="testimonials-inner">
+    <!-- ============ TESTIMONIALS ============ -->
+    <section id="testimonials">
+        <div class="container">
             <div class="section-header">
-                <span class="section-tag">⭐ Отзиви</span>
-                <h2>Какво Казват Нашите Клиенти</h2>
-                <p>Реални истории от бизнеси, които вече използват платформата и постигат невероятни резултати.</p>
+                <span class="section-tag">💬 Отзиви</span>
+                <h2>Какво казват клиентите ни</h2>
+                <p>Реални истории от бизнеси, които използват ДигиталМаркет Про всеки ден.</p>
             </div>
             <div class="testimonials-grid">
                 <div class="testimonial-card">
-                    <div class="t-stars">★★★★★</div>
-                    <p>"След като започнахме да използваме платформата, продажбите ни скочиха с 35% само за първите два месеца. Интерфейсът е невероятно лесен."</p>
-                    <div class="t-author">
-                        <div class="t-avatar">МК</div>
-                        <div>
-                            <div class="t-name">Мария Кирова</div>
-                            <div class="t-role">CEO, FashionStore BG</div>
-                        </div>
-                    </div>
+                    <div class="stars">★★★★★</div>
+                    <p class="quote">"С ДигиталМаркет Про увеличихме продажбите си с 40% само за първите 3 месеца. AI генерирането на съдържание ни спестява часове работа всеки ден."</p>
+                    <div class="author">Мария Петрова</div>
+                    <div class="author-role">Собственик, Онлайн Магазин "Арома"</div>
                 </div>
                 <div class="testimonial-card">
-                    <div class="t-stars">★★★★★</div>
-                    <p>"Автоматизацията ни спести над 20 часа седмично. Екипът вече се фокусира върху креативни задачи вместо рутинна работа."</p>
-                    <div class="t-author">
-                        <div class="t-avatar">ГП</div>
-                        <div>
-                            <div class="t-name">Георги Петров</div>
-                            <div class="t-role">Мениджър, TechSolutions</div>
-                        </div>
-                    </div>
+                    <div class="stars">★★★★★</div>
+                    <p class="quote">"Най-добрата инвестиция за нашия маркетинг екип. Интеграциите работят безпроблемно, а анализите са невероятно детайлни."</p>
+                    <div class="author">Георги Димитров</div>
+                    <div class="author-role">Маркетинг Мениджър, TechSolutions</div>
                 </div>
                 <div class="testimonial-card">
-                    <div class="t-stars">★★★★★</div>
-                    <p>"Най-добрата инвестиция за нашия бизнес тази година. Поддръжката е на световно ниво и винаги получаваме помощ на български."</p>
-                    <div class="t-author">
-                        <div class="t-avatar">ДС</div>
-                        <div>
-                            <div class="t-name">Даниела Стоева</div>
-                            <div class="t-role">Собственик, CreativeHub</div>
-                        </div>
-                    </div>
+                    <div class="stars">★★★★★</div>
+                    <p class="quote">"Препоръчвам на всеки малък бизнес! Поддръжката е на световно ниво, а платформата е изключително интуитивна и лесна за ползване."</p>
+                    <div class="author">Елена Стоянова</div>
+                    <div class="author-role">Фрийланс консултант</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- CTA SECTION -->
+    <!-- ============ PRICING ============ -->
+    <section id="pricing" style="background: var(--bg-light);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">💰 Цени</span>
+                <h2>Избери правилния план</h2>
+                <p>Прозрачни цени без скрити такси. Смени плана си по всяко време.</p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3>Стартов</h3>
+                    <p style="color:var(--text-light);font-size:0.9rem;">За малки бизнеси</p>
+                    <div class="price">39<span> лв/мес</span></div>
+                    <ul>
+                        <li>До 1,000 контакта</li>
+                        <li>Основни анализи</li>
+                        <li>Имейл автоматизация</li>
+                        <li>3 интеграции</li>
+                        <li>Поддръжка по имейл</li>
+                    </ul>
+                    <a href="#cta" class="btn btn-secondary">Започни</a>
+                </div>
+                <div class="pricing-card featured">
+                    <div class="badge-popular">Най-популярен</div>
+                    <h3>Професионален</h3>
+                    <p style="color:var(--text-light);font-size:0.9rem;">За растящи компании</p>
+                    <div class="price">99<span> лв/мес</span></div>
+                    <ul>
+                        <li>До 10,000 контакта</li>
+                        <li>Разширени AI анализи</li>
+                        <li>Пълна автоматизация</li>
+                        <li>50+ интеграции</li>
+                        <li>Приоритетна поддръжка 24/7</li>
+                        <li>AI генериране на съдържание</li>
+                    </ul>
+                    <a href="#cta" class="btn btn-primary">Започни безплатен пробен период</a>
+                </div>
+                <div class="pricing-card">
+                    <h3>Бизнес</h3>
+                    <p style="color:var(--text-light);font-size:0.9rem;">За големи екипи</p>
+                    <div class="price">199<span> лв/мес</span></div>
+                    <ul>
+                        <li>Неограничени контакти</li>
+                        <li>Персонализирани отчети</li>
+                        <li>Пълна автоматизация</li>
+                        <li>Всички интеграции</li>
+                        <li>Специален акаунт мениджър</li>
+                        <li>API достъп</li>
+                        <li>Персонализиран AI модел</li>
+                    </ul>
+                    <a href="#cta" class="btn btn-secondary">Свържи се с нас</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============ CTA ============ -->
     <section class="cta-section" id="cta">
-        <div class="cta-inner">
-            <h2>Готови ли сте да Израснете?</h2>
-            <p>Присъединете се към над 10 000 бизнеса, които вече използват нашата платформа, за да постигат изключителни резултати всеки ден.</p>
-            <a href="#" class="btn-white">🚀 Стартирай Безплатно Сега</a>
-            <div class="cta-guarantee">
-                🔒 Без кредитна карта • 14-дневен безплатен период • Отмяна по всяко време
-            </div>
+        <div class="container">
+            <h2>Готов ли си да трансформираш маркетинга си?</h2>
+            <p>Присъедини се към над 5,000 бизнеса, които вече използват ДигиталМаркет Про. Започни безплатния си 14-дневен пробен период днес.</p>
+            <a href="#" class="btn btn-accent">🎯 Започни безплатно сега</a>
+            <p class="cta-note">Без нужда от кредитна карта • Отмени по всяко време</p>
         </div>
     </section>
 
-    <!-- FOOTER -->
+    <!-- ============ FOOTER ============ -->
     <footer class="footer">
-        <div class="footer-inner">
+        <div class="footer-grid">
             <div class="footer-col">
-                <div class="footer-logo">◆ ДигиталноРешение</div>
-                <p>Модерна платформа за бизнес растеж, автоматизация и интелигентен анализ. Създадена в България с грижа за качеството.</p>
-                <p style="margin-top:8px;">📍 София, България</p>
-                <p>📧 office@digitalnoreshenie.bg</p>
+                <a href="#" class="footer-logo">🚀 ДигиталМаркет Про</a>
+                <p>Автоматизиран маркетинг за модерния бизнес. Спести време, увеличи приходите и развий бизнеса си с AI технология.</p>
             </div>
             <div class="footer-col">
                 <h4>Продукт</h4>
-                <a href="#features">Функционалности</a>
-                <a href="#how">Как Работи</a>
-                <a href="#cta">Цени</a>
-                <a href="#">Интеграции</a>
+                <ul>
+                    <li><a href="#features">Функции</a></li>
+                    <li><a href="#pricing">Цени</a></li>
+                    <li><a href="#">Интеграции</a></li>
+                    <li><a href="#">Пътна карта</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Ресурси</h4>
+                <ul>
+                    <li><a href="#">Блог</a></li>
+                    <li><a href="#">Документация</a></li>
+                    <li><a href="#">ЧЗВ</a></li>
+                    <li><a href="#">Поддръжка</a></li>
+                </ul>
             </div>
             <div class="footer-col">
                 <h4>Компания</h4>
-                <a href="#">За Нас</a>
-                <a href="#">Кариери</a>
-                <a href="#">Блог</a>
-                <a href="#">Контакти</a>
-            </div>
-            <div class="footer-col">
-                <h4>Правна Информация</h4>
-                <a href="#">Поверителност</a>
-                <a href="#">Условия за Ползване</a>
-                <a href="#">GDPR</a>
-                <a href="#">Бисквитки</a>
+                <ul>
+                    <li><a href="#">За нас</a></li>
+                    <li><a href="#">Кариери</a></li>
+                    <li><a href="#">Поверителност</a></li>
+                    <li><a href="#">Условия</a></li>
+                </ul>
             </div>
         </div>
         <div class="footer-bottom">
-            © 2025 ДигиталноРешение. Всички права запазени. Създадено с ❤️ в България.
+            <p>&copy; 2025 ДигиталМаркет Про. Всички права запазени. Създадено с ❤️ в България.</p>
         </div>
     </footer>
 
+    <!-- ============ SCRIPTS ============ -->
     <script>
         // Mobile menu toggle
         const hamburger = document.getElementById('hamburger');
         const navLinks = document.getElementById('navLinks');
-        const navOverlay = document.getElementById('navOverlay');
+        const mobileOverlay = document.getElementById('mobileOverlay');
 
         function toggleMenu() {
             hamburger.classList.toggle('active');
             navLinks.classList.toggle('active');
-            navOverlay.classList.toggle('active');
+            mobileOverlay.classList.toggle('active');
             document.body.style.overflow = navLinks.classList.contains('active') ? 'hidden' : '';
         }
 
         hamburger.addEventListener('click', toggleMenu);
-        navOverlay.addEventListener('click', toggleMenu);
+        mobileOverlay.addEventListener('click', toggleMenu);
 
-        // Close menu on link click
-        navLinks.querySelectorAll('a').forEach(link => {
+        // Close menu on link click (mobile)
+        document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 if (navLinks.classList.contains('active')) {
                     toggleMenu();
@@ -1264,24 +1197,24 @@
         // Navbar scroll effect
         const navbar = document.getElementById('navbar');
         window.addEventListener('scroll', () => {
-            if (window.scrollY > 50) {
+            if (window.scrollY > 20) {
                 navbar.classList.add('scrolled');
             } else {
                 navbar.classList.remove('scrolled');
             }
         });
 
-        // Smooth scroll for all anchor links (fallback)
+        // Smooth scroll for all anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
-                const href = this.getAttribute('href');
-                if (href === '#') return;
-                e.preventDefault();
-                const target = document.querySelector(href);
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                const target = document.querySelector(targetId);
                 if (target) {
+                    e.preventDefault();
                     const navHeight = navbar.offsetHeight;
-                    const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - navHeight -
-                        10;
+                    const targetPosition = target.getBoundingClientRect().top + window.pageYOffset -
+                        navHeight - 10;
                     window.scrollTo({
                         top: targetPosition,
                         behavior: 'smooth'

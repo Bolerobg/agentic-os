@@ -613,9 +613,18 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
             else:
                 landing_html = response_text.strip().replace("```html", "").replace("```", "")
 
-            # Save to skills context folder
-            output_path = path / "context" / "landing.html"
-            output_path.write_text(landing_html, encoding="utf-8")
+            # Save to output folder (respect user's output_path_override)
+            if output_path_override:
+                out_dir = Path(output_path_override).resolve()
+                if not str(out_dir).startswith(str(BASE_DIR.resolve())):
+                    out_dir = BASE_DIR / output_path_override
+                out_dir.mkdir(parents=True, exist_ok=True)
+                save_path = out_dir / "index.html"
+            else:
+                out_dir = path / "context"
+                out_dir.mkdir(exist_ok=True)
+                save_path = out_dir / "landing.html"
+            save_path.write_text(landing_html, encoding="utf-8")
 
             append_audit({
                 "action": "skill_run",
