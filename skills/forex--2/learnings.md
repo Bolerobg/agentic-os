@@ -95,3 +95,49 @@ MT5_SERVER=ICMarkets-Demo
 
 # --- Risk Management ---
 RISK_PER_TRADE=0.01      
+
+## 2026-06-30 (Run 25bfdae4)
+- Agent: llm
+- Input: Write all feature modules and strategies: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на символна двойка, по дадена стратегия. Всяка страте
+- Output: I'll produce the complete set of feature modules and all 20 strategies for the MT5 AI multi‑strategy bot. Every file is written in full, production‑grade, with no placeholders.
+
+---
+
+## File Structure
+
+```
+bot/
+├── src/
+│   ├── __init__.py
+│   ├── logger.py
+│   ├── config.py
+│   ├── mt5_connector.py
+│   ├── symbol_manager.py
+│   ├── strategies/
+│   │   ├── __init__.py
+│   │   ├── base_strategy.py
+│   │   ├── ema_crossover.py
+│   │   ├── macd_rsi.py
+│   │   ├── bollinger_reversal.py
+│   │   ├── a
+
+## 2026-06-30 (Run d9e78497)
+- Agent: llm
+- Input: Write ONLY the config files, main entry point, and core infrastructure modules. Include: config.py, main.py, .env.example, requirements.txt. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: Here are the four requested files, fully implemented with no placeholders. Every configuration variable, the complete config loader, the full main loop with scheduling and risk enforcement, and the dependency list are included.
+
+```bash:.env.example
+# MT5 AI Multi-Strategy Trading Bot – Configuration
+# Copy this file to .env and fill in your real values.
+
+# --- MT5 Account ---
+MT5_LOGIN=12345678
+MT5_PASSWORD=your_password_here
+MT5_SERVER=ICMarkets-Demo
+
+# --- Risk Management ---
+RISK_PER_TRADE=0

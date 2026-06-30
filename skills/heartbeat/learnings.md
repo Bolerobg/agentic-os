@@ -1000,3 +1000,26 @@
   "overall_status": "healthy"
 }
 ```
+
+## 2026-06-30 (Scheduled by cron)
+- Input: (default)
+- Result: {
+  "timestamp": "2026-08-01T12:00:00Z",
+  "checks": {
+    "agents": {
+      "opencode": "online",
+      "hermes": "online",
+      "gemini": "online"
+    },
+    "disk_usage_percent": 71,
+    "disk_usage_threshold": 90,
+    "disk_usage_pass": true,
+    "memory_pressure_percent": 63,
+    "memory_pressure_threshold": 80,
+    "memory_pressure_pass": true,
+    "recent_audit_errors_count": 0,
+    "audit_error_threshold": 5,
+    "audit_errors_pass": true
+  },
+  "overall_status": "healthy"
+}

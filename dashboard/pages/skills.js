@@ -290,6 +290,11 @@ if (!document.getElementById("skillProgressStyles")) {
 }
 
   
+  // Initialize progress tracking
+  window._skillRunning = true;
+  window._skillProgressPct = 5;
+  window._skillProgressLabel = 'Initializing...';
+
   // Log window helper
   var logs = [];
   function addLog(msg, type) {
@@ -311,7 +316,7 @@ if (!document.getElementById("skillProgressStyles")) {
       h += '<div class="skill-log-line" style="color:' + (colors[logs[i].type] || colors.info) + ';margin-bottom:1px">' + spinner + icons[logs[i].type] + ' <span style="color:var(--text-muted)">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
     }
     h += '</div></div>';
-    resultArea.innerHTML = h + (resultArea.innerHTML.indexOf('skillLogArea') === -1 ? resultArea.innerHTML.replace(/<div class="card".*?<\/div>/s, '') : '');
+    resultArea.innerHTML = h;
     var logArea = document.getElementById('skillLogArea');
     if (logArea) logArea.scrollTop = logArea.scrollHeight;
   }
