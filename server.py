@@ -84,6 +84,7 @@ class BrainUpdate(BaseModel):
 class SkillRunRequest(BaseModel):
     input: Optional[str] = ""
     agent: Optional[str] = "auto"
+    output_path: Optional[str] = ""  # where to save generated files
 
 class ScheduleJobRequest(BaseModel):
     name: str
@@ -532,6 +533,7 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
 
     agent_choice = req.agent if req else "auto"
     skill_input = req.input if req else ""
+    output_path_override = req.output_path if req and req.output_path else ""
 
     # ── Landing Builder: special handler using LLM API ──
     if name == "landing-builder" and skill_input:
@@ -687,16 +689,60 @@ Execute the task below following the skill instructions exactly. Be thorough and
         response_text = f"⚠ LLM execution failed: {str(e)}"
         agent_used = "llm-error"
 
+    # Auto-save generated files if response contains file markers
+    files_created = []
+    output_dir = None
+    if response_text and skill_input:
+        # Use custom output path or default to skills/<name>/output
+        if output_path_override:
+            output_dir = Path(output_path_override).resolve()
+            if not str(output_dir).startswith(str(BASE_DIR.resolve())):
+                output_dir = BASE_DIR / output_path_override
+        else:
+            output_dir = path / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Parse file markers: ```language:filepath or ## filepath followed by ``` blocks
+        file_pattern = re.findall(r'(?:^#{1,3}\s*`?([\w./-]+\.[\w]+)`?\s*$|^```\w*(?::([\w./-]+\.[\w]+))?\s*$)', response_text, re.MULTILINE)
+        # Simpler: find all ``` blocks with optional file paths
+        blocks = re.findall(r'```(\w+)?(?::(\S+\.\w+))?\s*\n(.*?)```', response_text, re.DOTALL)
+        if not blocks:
+            # Try markdown headers with filenames
+            blocks = re.findall(r'^#{1,3}\s+`?([\w./-]+\.[\w]+)`?\s*\n+(.*?)(?=^#{1,3}\s|```|\Z)', response_text, re.MULTILINE | re.DOTALL)
+
+        for block in blocks:
+            try:
+                if isinstance(block, tuple):
+                    if len(block) == 3 and block[2]:
+                        lang, filepath, code = block
+                        if not filepath:
+                            continue
+                    elif len(block) == 2 and block[0]:
+                        filepath, code = block
+                    else:
+                        continue
+                    filepath = filepath.strip()
+                    code = code.strip()
+                    if filepath and code and '/' in filepath:
+                        fpath = output_dir / filepath
+                        fpath.parent.mkdir(parents=True, exist_ok=True)
+                        fpath.write_text(code)
+                        files_created.append(str(fpath.relative_to(BASE_DIR)))
+            except Exception:
+                pass
+
     # Save learnings
     timestamp = get_timestamp()[:10]
     existing = read_file(path / "learnings.md")
     new_entry = f"\n## {timestamp} (Run {run_id})\n- Agent: {agent_used}\n- Input: {skill_input or '(none)'}\n- Output: {response_text[:500]}\n"
+    if files_created:
+        new_entry += f"- Files created: {len(files_created)}\n"
     write_file(path / "learnings.md", existing + new_entry)
 
     append_audit({"action": "skill_run", "skill": name, "agent": agent_used, "run_id": run_id,
                   "output_preview": response_text[:100]})
 
-    return {
+    result = {
         "status": "completed",
         "run_id": run_id,
         "skill": name,
@@ -704,6 +750,11 @@ Execute the task below following the skill instructions exactly. Be thorough and
         "output": response_text,
         "message": f"Skill '{name}' completed via {agent_used}",
     }
+    if files_created:
+        result["files_created"] = files_created
+        result["output_dir"] = str(output_dir.relative_to(BASE_DIR)) if output_dir else ""
+        result["message"] += f" — {len(files_created)} files saved to skills/{name}/output/"
+    return result
 
 @app.get("/api/skills/{name}/eval")
 def get_skill_eval(name: str):
