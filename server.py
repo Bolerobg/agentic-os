@@ -1560,8 +1560,70 @@ def discover_standards():
     append_audit({"action": "standards_discovery_run"})
     return {"status": "discovery_started", "message": "Scanning codebase for patterns..."}
 
-# ─── Routes: Chat ─────────────────────────────────────────────────
+@app.post("/api/standards")
+def create_standard(data: dict):
+    name = (data.get("name", "") or "").strip().lower().replace(" ", "-")
+    content = data.get("content", "")
+    if not name or not content:
+        raise HTTPException(400, "Name and content required")
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid name")
+    std_dir = BASE_DIR / "standards"
+    std_dir.mkdir(exist_ok=True)
+    (std_dir / f"{name}.md").write_text(content)
+    append_audit({"action": "standard_created", "name": name})
+    return {"status": "created", "name": name}
 
+@app.put("/api/standards/{name}")
+def update_standard(name: str, data: dict):
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid name")
+    content = data.get("content", "")
+    path = BASE_DIR / "standards" / f"{name}.md"
+    if not path.exists():
+        raise HTTPException(404, "Standard not found")
+    path.write_text(content)
+    append_audit({"action": "standard_updated", "name": name})
+    return {"status": "updated", "name": name}
+
+@app.delete("/api/standards/{name}")
+def delete_standard(name: str):
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid name")
+    path = BASE_DIR / "standards" / f"{name}.md"
+    if not path.exists():
+        raise HTTPException(404, "Standard not found")
+    path.unlink()
+    append_audit({"action": "standard_deleted", "name": name})
+    return {"status": "deleted"}
+
+@app.post("/api/standards/ai-generate")
+def ai_generate_standard(data: dict):
+    idea = (data.get("idea", "") or "").strip()
+    if not idea or len(idea) < 10:
+        raise HTTPException(400, "Describe your standard in at least 10 characters")
+
+    prompt = f"""You are a coding standards expert. Write a professional standard based on this idea:
+
+{idea}
+
+Return a well-formatted markdown document with:
+- Clear title
+- Purpose section
+- Rules/guidelines as bullet points
+- Examples (code snippets if applicable)
+- Enforcement notes
+
+Generate now:"""
+
+    try:
+        response = call_llm([{"role": "user", "content": prompt}], provider="deepseek")
+        return {"standard_md": response, "idea": idea}
+    except Exception as e:
+        return {"standard_md": f"Error: {e}", "idea": idea}
+
+
+# ─── Routes: Chat ─────────────────────────────────────────────────
 CHAT_HISTORY_FILE = BASE_DIR / "data" / "chat-history.json"
 
 def load_chat_history():
