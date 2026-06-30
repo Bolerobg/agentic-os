@@ -282,8 +282,8 @@ async function generateAiSkill() {
     document.getElementById('aiSkillContent').textContent = res.skill_md || '';
     document.getElementById('aiSkillResult').style.display = 'block';
     // Auto-suggest name from first line
-    const firstLine = (res.skill_md || '').split('\\n')[0].replace(/^# /, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
-    document.getElementById('aiSkillName').value = firstLine || 'new-skill';
+    const rawName = (res.skill_md || '').split('\\n')[0].replace(/^# /, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '').replace(/^-+/, '');
+    document.getElementById('aiSkillName').value = rawName.slice(0, 50).replace(/-$/, '') || 'new-skill';
     btn.disabled = false; btn.textContent = '🤖 Regenerate';
   } catch (err) {
     showToast(err.message, 'error');

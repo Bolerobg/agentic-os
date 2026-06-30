@@ -1311,6 +1311,8 @@ def generate_skill(data: dict):
     description = data.get("description", "").strip()
     if not name or not description:
         raise HTTPException(400, "Both 'name' and 'description' are required")
+    if len(name) > 80:
+        raise HTTPException(400, "Skill name too long (max 80 characters)")
     if not re.match(r'^[a-z0-9-]+$', name):
         raise HTTPException(400, "Skill name must be alphanumeric with hyphens")
     skill_dir = BASE_DIR / "skills" / name
