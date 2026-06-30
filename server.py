@@ -4,6 +4,7 @@ Agentic OS — FastAPI Backend
 Multi-agent orchestration server for opencode, Hermes, Gemini CLI
 """
 import argparse
+import asyncio
 import json
 import os
 import re
@@ -1944,6 +1945,36 @@ async def chat_stream(data: dict):
     async def generate():
         full_response = ""
         yield f"data: {json.dumps({'type': 'start', 'agent': agent, 'model': user_model or 'default'})}\n\n"
+
+        # Try CLI tools first for opencode and hermes
+        if agent in ("opencode", "hermes") and not agent.startswith("llm:"):
+            cli_path = _find_bin(agent)
+            if cli_path:
+                try:
+                    cmd = [cli_path, "ask", message] if agent == "opencode" else [cli_path, "chat", "-q", message]
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env={**os.environ, "NO_COLOR": "1"}
+                    )
+                    while True:
+                        line = await proc.stdout.readline()
+                        if not line:
+                            break
+                        text = line.decode().strip()
+                        if text:
+                            full_response += text + "\n"
+                            yield f"data: {json.dumps({'type': 'token', 'text': text})}\n\n"
+                    await proc.wait()
+                    yield f"data: {json.dumps({'type': 'done', 'text': ''})}\n\n"
+                    if full_response:
+                        agent_msg = {"id": str(uuid.uuid4())[:8], "role": "assistant", "agent": agent, "content": full_response, "timestamp": get_timestamp()}
+                        save_chat_message(agent_msg)
+                        return
+                except Exception:
+                    pass  # Fall through to API
+
         try:
             if provider == "openrouter":
                 streamer = stream_openrouter(messages, model=user_model or "deepseek/deepseek-chat")
