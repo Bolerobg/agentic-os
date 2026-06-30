@@ -35,6 +35,7 @@ const api = {
   runSkill: (name, input = '', agent = 'auto', outputPath = '') => api.post(`/api/skills/${encodeURIComponent(name)}/run`, { input, agent, output_path: outputPath }),
   getSkillEval: (name) => api.get(`/api/skills/${encodeURIComponent(name)}/eval`),
   deleteSkill: (name) => api.del(`/api/skills/${encodeURIComponent(name)}`),
+  updateSkill: (name, content) => api.put(`/api/skills/${encodeURIComponent(name)}/update`, { content }),
   generateSkill: (name, description) => api.post('/api/skills/generate', { name, description }),
   aiGenerateSkill: (idea) => api.post('/api/skills/ai-generate', { idea }),
   getJobs: () => api.get('/api/scheduler/jobs'),
