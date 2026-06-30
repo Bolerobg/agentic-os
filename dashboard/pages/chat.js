@@ -91,7 +91,8 @@ async function renderChat() {
             <input type="text" id="projectPath" class="form-input" placeholder="📁 Project folder (optional)" 
               style="flex:1;font-size:11px;padding:6px 10px;height:30px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary)"
               onchange="window._projectPath = this.value" onkeydown="if(event.key==='Enter'){document.getElementById('chatInput').focus()}">
-            <button class="btn btn-sm" onclick="browseProject()" style="height:30px;font-size:11px" title="Browse">📂</button>
+            <input type="file" id="nativeFolderPicker" webkitdirectory style="display:none" onchange="handleNativeFolderPick(event)">
+            <button class="btn btn-sm" onclick="openFolderPicker()" style="height:30px;font-size:11px" title="Browse folders in Finder">📂 Browse</button>
           </div>
           <textarea id="chatInput" class="chat-input" rows="1" placeholder="Type a message..." onkeydown="handleChatKey(event)"></textarea>
           <button class="btn btn-primary btn-icon" onclick="sendChatMessage()" id="chatSendBtn" title="Send">➤</button>
@@ -297,19 +298,82 @@ function clearChat() {
   window._chatHistory = [];
 }
 
-async function browseProject() {
-  const input = document.getElementById('projectPath');
-  const path = prompt('Enter project folder path:', input.value || '/Users/bolero/Documents');
-  if (path) {
-    input.value = path;
-    window._projectPath = path;
+function openFolderPicker() {
+  // Try native folder picker first (Chromium)
+  const native = document.getElementById('nativeFolderPicker');
+  if (native && 'showDirectoryPicker' in window) {
     try {
-      const data = await api.getProjects ? api.getProjects(path) : fetch('/api/projects?path=' + encodeURIComponent(path)).then(r => r.json());
-      const files = (data.items || []).slice(0, 15).map(f => `${f.type === 'dir' ? '📁' : '📄'} ${f.name}`).join('\n');
-      if (files) showToast(`📂 ${data.path}\n${files}`, 'info');
-      else showToast('Empty folder or access denied', 'warning');
-    } catch { showToast('Cannot access folder', 'error'); }
+      window.showDirectoryPicker().then(handle => {
+        document.getElementById('projectPath').value = handle.name;
+        window._projectPath = handle.name;
+        showToast('📁 Project: ' + handle.name, 'success');
+      }).catch(() => browseProject());
+      return;
+    } catch {}
   }
+  // Fallback: visual modal browser
+  browseProject();
+}
+
+function handleNativeFolderPick(event) {
+  const files = event.target.files;
+  if (files.length > 0) {
+    const path = files[0].webkitRelativePath.split('/')[0];
+    document.getElementById('projectPath').value = path;
+    showToast('📁 ' + path, 'success');
+  }
+}
+
+async function browseProject(currentPath) {
+  const startPath = currentPath || document.getElementById('projectPath')?.value?.trim() || '/Users/bolero/Documents';
+  let items = [];
+  try {
+    const url = '/api/projects?path=' + encodeURIComponent(startPath);
+    const resp = await fetch(url);
+    const data = await resp.json();
+    items = data.items || [];
+    if (data.error) { showToast(data.error, 'error'); return; }
+  } catch { showToast('Cannot access folder', 'error'); return; }
+
+  const dirs = items.filter(f => f.type === 'dir');
+  const files = items.filter(f => f.type === 'file');
+
+  showModal('📂 Browse Project', `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px">
+      <span style="color:var(--text-muted)">📁</span>
+      <span id="browsePath" style="font-family:var(--font-mono);color:var(--accent-light);font-size:11px;word-break:break-all">${escapeHtml(startPath)}</span>
+    </div>
+    ${dirs.length > 0 ? `
+      <div class="section-title" style="font-size:11px;margin-bottom:4px">📁 Folders</div>
+      <div style="max-height:200px;overflow-y:auto;margin-bottom:8px">
+        ${dirs.map(d => `
+          <div class="flex items-center gap-2" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px"
+            onmouseover="this.style.background='var(--bg-card-hover)'" onmouseout="this.style.background=''"
+            onclick="closeModal();browseProject('${escapeHtml((startPath + '/' + d.name).replace(/\/\/+/g, '/'))}')">
+            <span>📁</span><span>${escapeHtml(d.name)}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '<div class="text-sm text-muted" style="padding:8px 0">No subfolders</div>'}
+    ${files.length > 0 ? `
+      <div class="section-title" style="font-size:11px;margin-bottom:4px">📄 Files (${files.length})</div>
+      <div style="font-size:10px;color:var(--text-muted);max-height:80px;overflow-y:auto">
+        ${files.slice(0, 10).map(f => `<div>📄 ${escapeHtml(f.name)}</div>`).join('')}
+        ${files.length > 10 ? `<div style="color:var(--text-muted)">... and ${files.length - 10} more</div>` : ''}
+      </div>
+    ` : ''}
+  `, `
+    <button class="btn btn-primary" onclick="selectBrowsePath('${escapeHtml(startPath)}')">✅ Select This Folder</button>
+    ${startPath !== '/' ? `<button class="btn btn-sm" onclick="closeModal();browseProject('${escapeHtml(startPath.split('/').slice(0,-1).join('/') || '/')}')">⬆ Parent</button>` : ''}
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+  `);
+}
+
+function selectBrowsePath(path) {
+  closeModal();
+  const input = document.getElementById('projectPath');
+  if (input) { input.value = path; window._projectPath = path; }
+  showToast('📁 Project: ' + path.split('/').pop() || path, 'success');
 }
 
 function sendQuickPrompt(agent, message) {
