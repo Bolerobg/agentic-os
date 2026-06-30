@@ -394,7 +394,13 @@ def check_agent(name: str) -> dict:
         nvm_bin = Path.home() / ".nvm" / "versions"
         if nvm_bin.exists():
             for ver_dir in nvm_bin.iterdir():
-                extra_paths.append(str(ver_dir / "bin"))
+                if ver_dir.is_dir():
+                    # Check if there are version dirs inside (e.g., node/v22.14.0/bin)
+                    for sub in ver_dir.iterdir():
+                        if sub.is_dir():
+                            extra_paths.append(str(sub / "bin"))
+                    # Also try directly (e.g., v22.14.0/bin)
+                    extra_paths.append(str(ver_dir / "bin"))
 
         def find_bin(bin_name):
             found = shutil.which(bin_name)
