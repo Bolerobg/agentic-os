@@ -280,16 +280,35 @@ async function executeSkillRun(encodedName) {
   if (runBtn) { runBtn.disabled = true; runBtn.textContent = '⏳ Running...'; }
   if (resultArea) { resultArea.style.display = 'block'; resultArea.innerHTML = ''; }
 
+  
+// Inject progress styles
+if (!document.getElementById("skillProgressStyles")) {
+  var s = document.createElement("style");
+  s.id = "skillProgressStyles";
+  s.textContent = ".skill-progress-bar { height:4px; background:var(--bg-dim); border-radius:99px; margin:8px 0; overflow:hidden } .skill-progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--green)); border-radius:99px; transition:width 0.3s; width:0% } .skill-spinner { display:inline-block; width:12px; height:12px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin-right:6px; vertical-align:middle } @keyframes spin { to { transform:rotate(360deg) } } .skill-log-line { display:flex; align-items:center; gap:4px }";
+  document.head.appendChild(s);
+}
+
+  
   // Log window helper
   var logs = [];
   function addLog(msg, type) {
     var t = new Date().toLocaleTimeString();
     logs.push({time: t, msg: msg, type: type || 'info'});
     var colors = {info: 'var(--text-secondary)', success: 'var(--green)', error: 'var(--red)', ai: 'var(--accent-light)', file: 'var(--yellow)'};
-    var icons = {info: 'ℹ', success: '✓', error: '✕', ai: '🤖', file: '📁'};
-    var h = '<div class="card" style="padding:10px;margin-bottom:4px;border-color:var(--border)"><div style="font-family:var(--font-mono);font-size:10px;line-height:1.5;max-height:300px;overflow-y:auto" id="skillLogArea">';
+    var icons = {info: 'ℹ', success: '✓', error: '✕', ai: '🤖', file: '📁', progress: '⏳'};
+    var running = window._skillRunning;
+    var h = '<div class="card" style="padding:10px;margin-bottom:4px;border-color:var(--border)">';
+    // Progress bar
+    if (running && window._skillProgressPct >= 0) {
+      h += '<div class="skill-progress-bar"><div class="skill-progress-fill" style="width:' + window._skillProgressPct + '%"></div></div>';
+      h += '<div style="font-size:9px;color:var(--text-muted);text-align:center;margin-bottom:4px">' + (window._skillProgressLabel || 'Working...') + '</div>';
+    }
+    h += '<div style="font-family:var(--font-mono);font-size:10px;line-height:1.5;max-height:280px;overflow-y:auto" id="skillLogArea">';
     for (var i = 0; i < logs.length; i++) {
-      h += '<div style="color:' + (colors[logs[i].type] || colors.info) + ';margin-bottom:1px">' + icons[logs[i].type] + ' <span style="color:var(--text-muted)">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
+      var isActive = running && i === logs.length - 1 && (logs[i].type === 'ai' || logs[i].type === 'progress');
+      var spinner = isActive ? '<span class="skill-spinner"></span>' : '';
+      h += '<div class="skill-log-line" style="color:' + (colors[logs[i].type] || colors.info) + ';margin-bottom:1px">' + spinner + icons[logs[i].type] + ' <span style="color:var(--text-muted)">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
     }
     h += '</div></div>';
     resultArea.innerHTML = h + (resultArea.innerHTML.indexOf('skillLogArea') === -1 ? resultArea.innerHTML.replace(/<div class="card".*?<\/div>/s, '') : '');
@@ -331,10 +350,14 @@ async function executeSkillRun(encodedName) {
       }
       r = { output: allOutput, agent: 'multi-step', run_id: 'ms-' + Date.now(), files_created: [], output_dir: outputPath, message: 'Multi-step completed' };
     } else {
+      window._skillRunning = true;
+      window._skillProgressPct = 10; window._skillProgressLabel = 'Connecting...';
       addLog('Single-step mode', 'info');
       addLog('Prompt: ' + input.length + ' chars → DeepSeek', 'ai');
+      window._skillProgressPct = 25; window._skillProgressLabel = 'Generating...';
       var t0 = Date.now();
       r = await api.runSkill(name, input, agent, outputPath);
+      window._skillProgressPct = 90; window._skillProgressLabel = 'Saving files...';
       var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       addLog('Response: ' + ((r.output || '').length) + ' chars in ' + elapsed + 's', 'success');
       if (r.files_created && r.files_created.length > 0) {
@@ -342,6 +365,8 @@ async function executeSkillRun(encodedName) {
         r.files_created.forEach(function(f) { addLog('  ' + f, 'file'); });
       }
     }
+    window._skillRunning = false;
+    window._skillProgressPct = 100; window._skillProgressLabel = 'Complete';
     if (r.files_created && r.files_created.length > 0) {
       addLog(r.files_created.length + ' files saved to ' + (r.output_dir || 'output/'), 'file');
       r.files_created.forEach(function(f) { addLog(f, 'file'); });
