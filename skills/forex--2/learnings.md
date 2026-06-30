@@ -47,3 +47,28 @@ MT5_SERVER=ICMarkets-Demo
 RISK_PER_TRADE=0.01           # 1% of equity per trade
 MAX_DAILY_DRAWDOWN=0.03       # 3% daily drawdown limit
 MAX_TOTAL_D
+
+## 2026-06-30 (Run cb87069d)
+- Agent: llm
+- Input: Write config, main, and core modules: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на символна двойка, по дадена стратегия. Всяка страте
+- Output: I'll build the full MT5 AI multi-strategy bot with all core modules. Every file is written completely, no shortcuts.
+
+---
+
+## `.env.example`
+
+```bash
+# MT5 AI Multi-Strategy Trading Bot Configuration
+# Copy this to .env and fill in your values.
+
+# MT5 Account
+MT5_LOGIN=12345678
+MT5_PASSWORD=your_password
+MT5_SERVER=ICMarkets-Demo
+
+# Risk Management
+RISK_PER_TRADE=0.01           # 1% of account equity per trade
+MAX_DAILY_DRAWDOWN=0.03       # 3% daily drawdown limit
+MAX_TOTAL_DRAWDOWN=0.15       

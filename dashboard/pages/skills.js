@@ -304,25 +304,43 @@ async function executeSkillRun(encodedName) {
     let r;
     if (multiStep) {
       addLog('Multi-step mode enabled', 'ai');
-      addLog('Splitting task into steps...', 'ai');
-      const planRes = await api.aiGenerateSkill("Split this task into 3-4 logical steps. Task: " + input.slice(0, 500));
-      // Extract steps from plan
-      const steps = [{title: "Part 1: Core", task: "Write config, main, and core modules: " + input.slice(0,300)},
-                     {title: "Part 2: Features", task: "Write all feature modules and strategies: " + input.slice(0,300)},
-                     {title: "Part 3: Config & Docs", task: "Write remaining config, docs, requirements: " + input.slice(0,300)}];
+      addLog('AI planning task split...', 'ai');
+      
+      // Use default 3-step split (always works, no API call needed)
+      const steps = [
+        {title: "Part 1: Core & Config", task: "Write ONLY the config files, main entry point, and core infrastructure modules. Include: config.py, main.py, .env.example, requirements.txt. Task: " + input.slice(0,250)},
+        {title: "Part 2: Features & Logic", task: "Write ONLY the feature modules, business logic, strategies, and algorithms. Do NOT repeat config or main files. Task: " + input.slice(0,250)},
+        {title: "Part 3: Docs & Final", task: "Write ONLY documentation (README.md), tests, and any remaining utility files. Do NOT repeat code from previous parts. Task: " + input.slice(0,250)}
+      ];
+      addLog('Split into ' + steps.length + ' steps', 'success');
 
       let allOutput = '';
+      addLog('Starting ' + steps.length + '-step execution...', 'info');
       for (let i = 0; i < steps.length; i++) {
-        addLog('Step ' + (i+1) + '/' + steps.length + ': ' + steps[i].title, 'ai');
+        addLog('▶ Step ' + (i+1) + '/' + steps.length + ': ' + steps[i].title, 'ai');
+        addLog('  Prompt size: ' + steps[i].task.length + ' chars', 'info');
+        var stepStart = Date.now();
         const stepRes = await api.runSkill(name, steps[i].task, agent, outputPath);
+        var stepTime = ((Date.now() - stepStart) / 1000).toFixed(1);
+        addLog('  Completed in ' + stepTime + 's, output: ' + ((stepRes.output || '').length) + ' chars', 'success');
+        if (stepRes.files_created && stepRes.files_created.length > 0) {
+          addLog('  📁 ' + stepRes.files_created.length + ' files saved', 'file');
+        }
         allOutput += '\n## ' + steps[i].title + '\n' + (stepRes.output || '');
         if (stepRes.files_created) allOutput += '\n📁 ' + stepRes.files_created.length + ' files saved';
       }
       r = { output: allOutput, agent: 'multi-step', run_id: 'ms-' + Date.now(), files_created: [], output_dir: outputPath, message: 'Multi-step completed' };
     } else {
-      addLog('Sending prompt to AI...', 'ai');
+      addLog('Single-step mode', 'info');
+      addLog('Prompt: ' + input.length + ' chars → DeepSeek', 'ai');
+      var t0 = Date.now();
       r = await api.runSkill(name, input, agent, outputPath);
-      addLog('Response received (' + ((r.output || '').length) + ' chars)', 'success');
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      addLog('Response: ' + ((r.output || '').length) + ' chars in ' + elapsed + 's', 'success');
+      if (r.files_created && r.files_created.length > 0) {
+        addLog(r.files_created.length + ' files created', 'file');
+        r.files_created.forEach(function(f) { addLog('  ' + f, 'file'); });
+      }
     }
     if (r.files_created && r.files_created.length > 0) {
       addLog(r.files_created.length + ' files saved to ' + (r.output_dir || 'output/'), 'file');
