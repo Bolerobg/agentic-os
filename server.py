@@ -1771,7 +1771,7 @@ def execute_agent(agent: str, message: str) -> str:
             if opencode_path:
                 try:
                     result = subprocess.run(
-                        [opencode_path, "ask", message],
+                        [opencode_path, "run", message],
                         capture_output=True, text=True, timeout=120,
                         env={**os.environ, "OPENCODE_NO_COLOR": "1"}
                     )
@@ -1951,7 +1951,7 @@ async def chat_stream(data: dict):
             cli_path = _find_bin(agent)
             if cli_path:
                 try:
-                    cmd = [cli_path, "ask", message] if agent == "opencode" else [cli_path, "chat", "-q", message]
+                    cmd = [cli_path, "run", message] if agent == "opencode" else [cli_path, "chat", "-q", message]
                     proc = await asyncio.create_subprocess_exec(
                         *cmd,
                         stdout=asyncio.subprocess.PIPE,
