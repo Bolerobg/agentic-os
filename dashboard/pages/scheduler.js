@@ -4,7 +4,7 @@ async function renderScheduler() {
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Scheduler</h1>
-        <p class="page-subtitle">Automated workflow scheduling</p>
+        <p class="page-subtitle">Automated skill execution — set cron, skill, and task input</p>
       </div>
       <button class="btn btn-primary" onclick="showAddJob()">+ Add Job</button>
     </div>
@@ -16,20 +16,21 @@ async function renderScheduler() {
     const container = document.getElementById('jobList');
 
     if (jobs.length === 0) {
-      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏱</div><div class="empty-state-title">No scheduled jobs</div><div class="empty-state-desc">Create your first scheduled job to automate workflows</div><button class="btn btn-primary mt-3" onclick="showAddJob()">+ Add Job</button></div>';
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏱</div><div class="empty-state-title">No scheduled jobs</div><div class="empty-state-desc">Create automated skill executions with cron scheduling</div><button class="btn btn-primary mt-3" onclick="showAddJob()">+ Add Job</button></div>';
       return;
     }
 
     container.innerHTML = `
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Name</th><th>Skill</th><th>Cron</th><th>Status</th><th>Last Run</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Skill</th><th>Task</th><th>Cron</th><th>Status</th><th>Last Run</th><th></th></tr></thead>
           <tbody>
             ${jobs.map(j => `
               <tr>
-                <td><strong>${j.name}</strong></td>
-                <td><span class="badge badge-accent">${j.skill}</span></td>
-                <td><code>${j.cron}</code></td>
+                <td><strong>${escapeHtml(j.name)}</strong></td>
+                <td><span class="badge badge-accent">${escapeHtml(j.skill)}</span></td>
+                <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(j.input || '(default task)')}</td>
+                <td><code style="font-size:10px">${escapeHtml(j.cron)}</code></td>
                 <td><span class="badge ${j.enabled ? 'badge-success' : 'badge-warning'}">${j.enabled ? 'Active' : 'Paused'}</span></td>
                 <td style="font-size:12px;color:var(--text-muted)">${j.last_run ? formatDate(j.last_run) : 'Never'}</td>
                 <td><button class="btn btn-sm btn-danger" onclick="deleteJob('${j.id}')">Delete</button></td>
@@ -52,19 +53,32 @@ async function showAddJob() {
   showModal('Add Scheduled Job', `
     <div class="form-group">
       <label class="form-label">Job Name</label>
-      <input id="jobName" class="form-input" placeholder="e.g., Nightly Backup">
+      <input id="jobName" class="form-input" placeholder="e.g., Daily SEO Audit">
     </div>
     <div class="form-group">
       <label class="form-label">Skill</label>
-      <select id="jobSkill" class="form-select">
+      <select id="jobSkill" class="form-select" onchange="updateJobInputHint()">
         <option value="">Select a skill...</option>
         ${skills.map(s => `<option value="${s.name}">${s.name.replace(/-/g, ' ')}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
-      <label class="form-label">Cron Expression</label>
-      <input id="jobCron" class="form-input" placeholder="e.g., 0 2 * * *" value="0 0 * * *">
-      <div class="form-hint">Format: minute hour day month weekday</div>
+      <label class="form-label">Task / Input <span class="text-sm text-muted">— какво точно да направи</span></label>
+      <textarea id="jobInput" class="form-textarea" rows="3" placeholder="e.g., Check all agents, verify disk space, and report any errors.&#10;&#10;Or: Analyze https://example.com for SEO issues."></textarea>
+      <div class="form-hint">Describe what the skill should do. Leave empty for default behavior.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cron Schedule</label>
+      <div class="grid grid-3" style="gap:6px;margin-bottom:6px">
+        <button class="btn btn-sm" onclick="document.getElementById('jobCron').value='0 * * * *';return false" style="font-size:10px">Every hour</button>
+        <button class="btn btn-sm" onclick="document.getElementById('jobCron').value='0 9 * * *';return false" style="font-size:10px">Daily 9AM</button>
+        <button class="btn btn-sm" onclick="document.getElementById('jobCron').value='0 2 * * *';return false" style="font-size:10px">Daily 2AM</button>
+        <button class="btn btn-sm" onclick="document.getElementById('jobCron').value='*/30 * * * *';return false" style="font-size:10px">Every 30min</button>
+        <button class="btn btn-sm" onclick="document.getElementById('jobCron').value='0 9 * * 1-5';return false" style="font-size:10px">Weekdays 9AM</button>
+        <button class="btn btn-sm" onclick="document.getElementById('jobCron').value='0 0 * * 0';return false" style="font-size:10px">Sunday midnight</button>
+      </div>
+      <input id="jobCron" class="form-input" placeholder="0 0 * * *" value="0 0 * * *">
+      <div class="form-hint">minute hour day month weekday</div>
     </div>
   `, `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -75,10 +89,11 @@ async function showAddJob() {
 async function createJob() {
   const name = document.getElementById('jobName').value.trim();
   const skill = document.getElementById('jobSkill').value;
+  const input = document.getElementById('jobInput').value.trim();
   const cron = document.getElementById('jobCron').value.trim();
   if (!name || !skill || !cron) { showToast('All fields required', 'warning'); return; }
   try {
-    await api.createJob({ name, skill, cron });
+    await api.createJob({ name, skill, cron, input });
     closeModal();
     showToast('Job created', 'success');
     renderScheduler();

@@ -226,7 +226,7 @@ class CronScheduler:
                 self._scheduler.add_job(
                     run_skill,
                     CT.from_crontab(data["cron"]),
-                    args=[data["skill"], "cron"],
+                    args=[data["skill"], "cron", data.get("input", "")],
                     id=data.get("id", data["name"]),
                     name=data["name"],
                     replace_existing=True,

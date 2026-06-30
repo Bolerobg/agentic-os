@@ -89,6 +89,7 @@ class ScheduleJobRequest(BaseModel):
     name: str
     skill: str
     cron: str
+    input: str = ""
     enabled: bool = True
 
 class SettingsUpdate(BaseModel):
