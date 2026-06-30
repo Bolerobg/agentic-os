@@ -105,6 +105,7 @@ async function showSkillDetail(encodedName) {
       <div style="margin-bottom:16px">
         <button class="btn btn-ghost" onclick="backToSkills()">← Back to Skills</button>
         <button class="btn btn-primary" style="margin-left:8px" onclick="quickRunSkill('${encodeURIComponent(name)}')">▶ Run ${safeName.replace(/-/g, ' ')}</button>
+        <button class="btn" style="margin-left:8px" onclick="editSkillContent('${encodeURIComponent(name)}')">✏ Edit</button>
       </div>
       <div class="grid grid-2">
         <div class="card">
@@ -388,4 +389,28 @@ async function saveAiSkill() {
     showToast(`Skill "${name}" saved!`, 'success');
     renderSkills();
   } catch (err) { showToast(err.message, 'error'); }
+}
+
+
+async function editSkillContent(encodedName) {
+  const name = decodeURIComponent(encodedName);
+  let content = "";
+  try { const s = await api.getSkill(name); content = s.skill || ""; } catch {}
+  showModal("Edit SKILL.md: " + name, `
+    <textarea id="editSkillMd" class="form-textarea" rows="20" style="font-family:var(--font-mono);font-size:12px">${escapeHtml(content)}</textarea>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveSkillMd('${encodeURIComponent(name)}')">💾 Save</button>
+  `);
+}
+
+async function saveSkillMd(encodedName) {
+  const name = decodeURIComponent(encodedName);
+  const content = document.getElementById("editSkillMd").value;
+  try {
+    await api.updateSkill(name, content);
+    closeModal();
+    showToast("SKILL.md saved", "success");
+    showSkillDetail(encodedName);
+  } catch (err) { showToast(err.message, "error"); }
 }

@@ -1441,6 +1441,19 @@ Generate this skill by running it with appropriate input.
     append_audit({"action": "skill_generated", "name": name, "description": description})
     return {"status": "created", "name": name, "skill": skill_md}
 
+@app.put("/api/skills/{name}/update")
+def update_skill_content(name: str, data: dict):
+    """Update a skill's SKILL.md content."""
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid skill name")
+    skill_dir = BASE_DIR / "skills" / name
+    if not skill_dir.exists():
+        raise HTTPException(404, "Skill not found")
+    content = data.get("content", "")
+    (skill_dir / "SKILL.md").write_text(content)
+    append_audit({"action": "skill_updated", "name": name})
+    return {"status": "updated", "name": name}
+
 @app.delete("/api/skills/{name}")
 def delete_skill(name: str):
     """Delete an entire skill directory."""
