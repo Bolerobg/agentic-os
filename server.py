@@ -863,9 +863,49 @@ def restore_backup(data: BackupRestoreRequest):
 def list_prompts():
     prompts_dir = BASE_DIR / "prompts"
     prompts = {}
-    for f in sorted(prompts_dir.glob("*.md")):
-        prompts[f.stem] = read_file(f)
+    if prompts_dir.exists():
+        for f in sorted(prompts_dir.glob("*.md")):
+            prompts[f.stem] = read_file(f)
     return prompts
+
+@app.post("/api/prompts")
+def create_prompt(data: dict):
+    name = (data.get("name", "") or "").strip().lower().replace(" ", "-")
+    content = data.get("content", "")
+    if not name or not content:
+        raise HTTPException(400, "Name and content required")
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid name")
+    prompts_dir = BASE_DIR / "prompts"
+    prompts_dir.mkdir(exist_ok=True)
+    (prompts_dir / f"{name}.md").write_text(content)
+    append_audit({"action": "prompt_created", "name": name})
+    return {"status": "created", "name": name}
+
+@app.put("/api/prompts/{name}")
+def update_prompt(name: str, data: dict):
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid name")
+    content = data.get("content", "")
+    prompts_dir = BASE_DIR / "prompts"
+    path = prompts_dir / f"{name}.md"
+    if not path.exists():
+        raise HTTPException(404, "Prompt not found")
+    path.write_text(content)
+    append_audit({"action": "prompt_updated", "name": name})
+    return {"status": "updated", "name": name}
+
+@app.delete("/api/prompts/{name}")
+def delete_prompt(name: str):
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid name")
+    prompts_dir = BASE_DIR / "prompts"
+    path = prompts_dir / f"{name}.md"
+    if not path.exists():
+        raise HTTPException(404, "Prompt not found")
+    path.unlink()
+    append_audit({"action": "prompt_deleted", "name": name})
+    return {"status": "deleted"}
 
 # ─── Routes: Settings ─────────────────────────────────────────────
 
