@@ -311,6 +311,8 @@ async function browseProject() {
     } catch { showToast('Cannot access folder', 'error'); }
   }
 }
+
+function sendQuickPrompt(agent, message) {
   selectAgent(agent);
   document.getElementById('chatInput').value = message;
   sendChatMessage();

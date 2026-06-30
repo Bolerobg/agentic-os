@@ -66,18 +66,30 @@ function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
 
 async function updateAgentStatus() {
   try {
-    const status = await api.getStatus();
+    const [status, alerts] = await Promise.all([
+      api.getStatus(),
+      api.getAlertRules().catch(() => ({ history: [] })),
+    ]);
     const agents = status.agents || [];
     const bar = document.getElementById('agentStatusBar');
     const online = agents.filter(a => a.status === 'online').length;
     const total = agents.length;
     const dot = bar.querySelector('.agent-dot');
-    if (online === total) { dot.className = 'agent-dot online'; bar.querySelector('span').textContent = 'All agents online'; }
+    if (online === total) { dot.className = 'agent-dot online'; bar.querySelector('span').textContent = `${online}/${total} online`; }
     else if (online > 0) { dot.className = 'agent-dot warning'; bar.querySelector('span').textContent = `${online}/${total} online`; }
-    else { dot.className = 'agent-dot offline'; bar.querySelector('span').textContent = 'All agents offline'; }
+    else { dot.className = 'agent-dot offline'; bar.querySelector('span').textContent = 'Disconnected'; }
 
     const badge = document.getElementById('skillCount');
     if (badge && status.skills_count !== undefined) badge.textContent = status.skills_count;
+
+    // Update alert badge
+    const alertBadge = document.getElementById('alertCount');
+    const alertHistory = alerts.history || [];
+    const unread = alertHistory.filter(a => !a.read).length;
+    if (alertBadge) {
+      alertBadge.textContent = unread;
+      alertBadge.style.display = unread > 0 ? '' : 'none';
+    }
   } catch {
     const bar = document.getElementById('agentStatusBar');
     if (bar) { bar.querySelector('.agent-dot').className = 'agent-dot offline'; bar.querySelector('span').textContent = 'Disconnected'; }

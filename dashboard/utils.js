@@ -111,6 +111,7 @@ function renderSkeleton(count = 3) {
 
 const PAGE_TITLES = {
   dashboard: { title: 'Dashboard', breadcrumb: 'Overview' },
+  agents: { title: 'Agents', breadcrumb: 'Status, capabilities & performance' },
   skills: { title: 'Skills Hub', breadcrumb: 'Browse & execute skills' },
   memory: { title: 'Memory', breadcrumb: 'Shared brain context' },
   scheduler: { title: 'Scheduler', breadcrumb: 'Automated workflows' },
@@ -131,4 +132,16 @@ const PAGE_TITLES = {
   'smart-router': { title: 'Smart Router', breadcrumb: 'Task routing intelligence' },
   'learning-analytics': { title: 'Learning Analytics', breadcrumb: 'Skill improvement tracking' },
   'session-replay': { title: 'Session Replay', breadcrumb: 'Conversation history playback' },
+  // v2.0: Professional Dashboard pages
+  'agent-orchestration': { title: 'Agent Orchestration', breadcrumb: 'Real-time agent activity & tasks' },
+  'performance-kpis': { title: 'Performance KPIs', breadcrumb: 'Response times, success rates & SLA' },
+  'task-queue': { title: 'Task Queue', breadcrumb: 'Unified task swimlane & workflow' },
+  'agent-config': { title: 'Agent Configuration', breadcrumb: 'Capability matrix & model configs' },
+  'conversation-inspector': { title: 'Conversation Inspector', breadcrumb: 'Browse & analyze agent conversations' },
+  workflows: { title: 'Workflow Orchestrator', breadcrumb: 'Multi-agent pipeline builder' },
+  'cost-analytics': { title: 'Cost & Token Analytics', breadcrumb: 'Real-time spending & usage breakdown' },
+  alerts: { title: 'Alerting Center', breadcrumb: 'Configurable alerts & notifications' },
+  'system-health': { title: 'System Health', breadcrumb: 'CPU, memory, disk & network monitoring' },
+  'agent-comparison': { title: 'Agent Comparison', breadcrumb: 'A/B testing & side-by-side analysis' },
+  reports: { title: 'Scheduled Reports', breadcrumb: 'Automated digests & summaries' },
 };

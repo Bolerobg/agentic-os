@@ -389,20 +389,38 @@ def stream_gemini_chunks(text: str) -> Generator[str, None, None]:
 def check_agent(name: str) -> dict:
     """Instant filesystem-based check. No subprocess needed."""
     try:
+        # Also check nvm Node.js bin paths (server may not have user's PATH)
+        extra_paths = []
+        nvm_bin = Path.home() / ".nvm" / "versions"
+        if nvm_bin.exists():
+            for ver_dir in nvm_bin.iterdir():
+                extra_paths.append(str(ver_dir / "bin"))
+
+        def find_bin(bin_name):
+            found = shutil.which(bin_name)
+            if found:
+                return found
+            # Search extra paths
+            for p in extra_paths:
+                candidate = Path(p) / bin_name
+                if candidate.exists():
+                    return str(candidate)
+            return None
+
         if name == "opencode":
-            exists = shutil.which("opencode") is not None
+            exists = find_bin("opencode") is not None
             status = "online" if exists else "offline"
         elif name == "hermes":
-            exists = shutil.which("hermes") is not None
+            exists = find_bin("hermes") is not None
             status = "online" if exists else "offline"
         elif name == "gemini":
-            # Gemini has valid OAuth tokens logged in
+            # Gemini uses Google OAuth
+            exists = find_bin("gemini") is not None
             oauth = Path.home() / ".gemini" / "oauth_creds.json"
-            exists = shutil.which("gemini") is not None
             logged_in = oauth.exists() and "ya29" in oauth.read_text()
             status = "online" if exists and logged_in else "offline" if not exists else "warning"
         elif name == "jcode":
-            exists = shutil.which("node") is not None
+            exists = find_bin("node") is not None
             status = "online" if exists else "offline"
         else:
             status = "offline"
@@ -2010,6 +2028,1174 @@ self.addEventListener('fetch', (e) => {
 @app.get("/sw.js")
 def service_worker():
     return Response(content=SERVICE_WORKER_JS, media_type="application/javascript")
+
+# ═══════════════════════════════════════════════════════════════════
+# v2.0 — Professional Agent Management Dashboard
+# ═══════════════════════════════════════════════════════════════════
+
+# ─── Data Files ──────────────────────────────────────────────────
+
+TASKS_FILE = BASE_DIR / "data" / "tasks.json"
+METRICS_FILE = BASE_DIR / "data" / "metrics.json"
+AGENT_CONFIG_FILE = BASE_DIR / "data" / "agent-config.json"
+WORKFLOWS_FILE = BASE_DIR / "data" / "workflows.json"
+ALERTS_FILE = BASE_DIR / "data" / "alerts.json"
+COMPARISONS_FILE = BASE_DIR / "data" / "comparisons.json"
+
+def _load_json(path: Path, default=None):
+    if default is None: default = []
+    if path.exists():
+        try: return json.loads(path.read_text())
+        except: return default
+    return default
+
+def _save_json(path: Path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2))
+
+# ─── Models ──────────────────────────────────────────────────────
+
+class TaskCreate(BaseModel):
+    title: str
+    agent: str = ""
+    priority: str = "medium"
+    description: str = ""
+
+class TaskAction(BaseModel):
+    action: str  # cancel, retry, reroute
+    target_agent: str = ""
+
+class MetricRecord(BaseModel):
+    agent: str
+    task_type: str = ""
+    response_time_ms: int = 0
+    tokens_used: int = 0
+    success: bool = True
+    cost: float = 0.0
+
+class AgentConfigUpdate(BaseModel):
+    enabled: bool = True
+    default_model: str = ""
+    rate_limit: int = 0
+    capabilities: list = []
+    api_key_status: str = "ok"
+
+class WorkflowCreate(BaseModel):
+    name: str
+    description: str = ""
+    nodes: list = []  # [{id, agent, skill, depends_on: []}]
+    enabled: bool = True
+
+class AlertRule(BaseModel):
+    name: str
+    type: str  # agent_down, high_cost, rate_limit, error_spike, skill_failure
+    threshold: float = 0
+    agent: str = ""
+    enabled: bool = True
+    channels: list = []  # email, slack, webhook
+
+class ComparisonRequest(BaseModel):
+    prompt: str
+    agents: list = ["opencode", "hermes", "gemini"]
+
+# ─── 1. Real-time Agent Orchestration ────────────────────────────
+
+# In-memory task state for real-time orchestration
+_active_tasks = {}  # task_id -> task dict
+_task_queue = []    # pending task ids
+_orchestration_listeners = []  # SSE generators
+
+class OrchestrationEvent:
+    """Real-time event bus for dashboard updates."""
+    _listeners = []
+
+    @classmethod
+    def subscribe(cls):
+        import asyncio
+        q = asyncio.Queue()
+        cls._listeners.append(q)
+        return q
+
+    @classmethod
+    def publish(cls, event: dict):
+        for q in cls._listeners[:]:
+            try:
+                q.put_nowait(event)
+            except:
+                cls._listeners.remove(q)
+
+@app.get("/api/orchestration/state")
+def get_orchestration_state():
+    """Current state of all agents with active tasks."""
+    agents_state = {}
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        info = check_agent(name)
+        agent_tasks = [t for t in _active_tasks.values() if t.get("agent") == name]
+        agents_state[name] = {
+            "name": name,
+            "status": info["status"],
+            "active_tasks": len(agent_tasks),
+            "queued_tasks": len([t for t in _task_queue if any(ta.get("agent") == name for ta in [_active_tasks.get(tid, {}) for tid in [_task_queue]] if ta)]),
+            "current_task": agent_tasks[0] if agent_tasks else None,
+            "last_active": get_timestamp(),
+        }
+
+    return {
+        "agents": agents_state,
+        "active_task_count": len(_active_tasks),
+        "queued_task_count": len(_task_queue),
+        "updated": get_timestamp(),
+    }
+
+@app.get("/api/orchestration/stream")
+async def orchestration_stream():
+    """SSE stream for real-time orchestration updates."""
+    q = OrchestrationEvent.subscribe()
+
+    async def generate():
+        yield f"data: {json.dumps({'type': 'connected'})}\n\n"
+        try:
+            while True:
+                event = await q.get()
+                yield f"data: {json.dumps({'type': 'event', 'data': event})}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if q in OrchestrationEvent._listeners:
+                OrchestrationEvent._listeners.remove(q)
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# ─── 2. Agent Performance KPIs & Metrics ────────────────────────
+
+@app.get("/api/metrics/kpi")
+def get_agent_kpis():
+    """Performance KPIs for all agents."""
+    metrics = _load_json(METRICS_FILE, {"agents": {}, "history": []})
+    agents_kpi = {}
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        agent_data = metrics.get("agents", {}).get(name, {})
+        runs = agent_data.get("runs", [])
+        if runs:
+            response_times = sorted([r.get("response_time_ms", 0) for r in runs])
+            success_count = sum(1 for r in runs if r.get("success", True))
+            agents_kpi[name] = {
+                "name": name,
+                "total_runs": len(runs),
+                "success_rate": round(success_count / len(runs) * 100, 1) if runs else 100,
+                "avg_response_ms": round(sum(response_times) / len(response_times)) if response_times else 0,
+                "p50_response_ms": response_times[len(response_times)//2] if response_times else 0,
+                "p95_response_ms": response_times[int(len(response_times)*0.95)] if len(response_times) >= 20 else (response_times[-1] if response_times else 0),
+                "p99_response_ms": response_times[int(len(response_times)*0.99)] if len(response_times) >= 100 else (response_times[-1] if response_times else 0),
+                "total_tokens": sum(r.get("tokens_used", 0) for r in runs),
+                "total_cost": round(sum(r.get("cost", 0) for r in runs), 6),
+                "error_rate": round((len(runs) - success_count) / len(runs) * 100, 1) if runs else 0,
+                "last_24h_runs": sum(1 for r in runs[-100:] if r.get("timestamp", "").startswith(datetime.now(timezone.utc).strftime("%Y-%m-%d"))),
+            }
+        else:
+            agents_kpi[name] = {
+                "name": name, "total_runs": 0, "success_rate": 100,
+                "avg_response_ms": 0, "p50_response_ms": 0, "p95_response_ms": 0, "p99_response_ms": 0,
+                "total_tokens": 0, "total_cost": 0, "error_rate": 0, "last_24h_runs": 0,
+            }
+
+    return {"agents": agents_kpi, "updated": get_timestamp()}
+
+@app.post("/api/metrics/record")
+def record_metric(data: MetricRecord):
+    """Record a task execution metric."""
+    metrics = _load_json(METRICS_FILE, {"agents": {}, "history": []})
+    agents_data = metrics.setdefault("agents", {})
+    agent_data = agents_data.setdefault(data.agent, {"runs": []})
+
+    run = {
+        "id": str(uuid.uuid4())[:8],
+        "task_type": data.task_type,
+        "response_time_ms": data.response_time_ms,
+        "tokens_used": data.tokens_used,
+        "success": data.success,
+        "cost": data.cost,
+        "timestamp": get_timestamp(),
+    }
+    agent_data["runs"].append(run)
+    if len(agent_data["runs"]) > 1000:
+        agent_data["runs"] = agent_data["runs"][-1000:]
+    metrics["history"].append({
+        "date": get_timestamp()[:10],
+        "agent": data.agent,
+        "success": data.success,
+    })
+    if len(metrics["history"]) > 500:
+        metrics["history"] = metrics["history"][-500:]
+
+    _save_json(METRICS_FILE, metrics)
+    OrchestrationEvent.publish({"type": "metric_recorded", "agent": data.agent, "success": data.success})
+    return {"status": "recorded", "run_id": run["id"]}
+
+@app.get("/api/metrics/trends")
+def get_metric_trends():
+    """Success rate trends over last 30 days."""
+    metrics = _load_json(METRICS_FILE, {"agents": {}, "history": []})
+    history = metrics.get("history", [])
+    dates = sorted(set(h.get("date", "") for h in history))
+    dates = dates[-30:]
+
+    trends = {}
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        trends[name] = []
+    for d in dates:
+        day_entries = [h for h in history if h.get("date") == d]
+        for name in ["opencode", "hermes", "gemini", "jcode"]:
+            agent_day = [e for e in day_entries if e.get("agent") == name]
+            if agent_day:
+                rate = sum(1 for e in agent_day if e.get("success", True)) / len(agent_day) * 100
+                trends[name].append(round(rate, 1))
+            else:
+                trends[name].append(None)
+
+    return {"trends": trends, "labels": dates, "updated": get_timestamp()}
+
+# ─── 3. Unified Task Queue & Workload ────────────────────────────
+
+@app.get("/api/tasks")
+def list_tasks(status: str = "", agent: str = ""):
+    """List all tasks with optional filters."""
+    all_tasks = list(_active_tasks.values())
+
+    # Also load persisted tasks
+    persisted = _load_json(TASKS_FILE, [])
+    for t in persisted:
+        if t["id"] not in _active_tasks:
+            all_tasks.append(t)
+
+    if status:
+        all_tasks = [t for t in all_tasks if t.get("status") == status]
+    if agent:
+        all_tasks = [t for t in all_tasks if t.get("agent") == agent]
+
+    # Sort by priority then created
+    prio_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    all_tasks.sort(key=lambda t: (prio_order.get(t.get("priority", "medium"), 5), t.get("created", "")))
+
+    columns = {"pending": [], "running": [], "completed": [], "failed": [], "cancelled": []}
+    for t in all_tasks:
+        s = t.get("status", "pending")
+        if s in columns:
+            columns[s].append(t)
+
+    return {
+        "tasks": all_tasks,
+        "columns": columns,
+        "total": len(all_tasks),
+        "by_agent": {
+            name: len([t for t in all_tasks if t.get("agent") == name])
+            for name in ["opencode", "hermes", "gemini", "jcode"]
+        },
+    }
+
+@app.post("/api/tasks")
+def create_task(data: TaskCreate):
+    """Create a new task and add to queue."""
+    task = {
+        "id": str(uuid.uuid4())[:8],
+        "title": data.title,
+        "description": data.description,
+        "agent": data.agent,
+        "priority": data.priority,
+        "status": "pending",
+        "progress": 0,
+        "created": get_timestamp(),
+        "started": None,
+        "completed": None,
+        "error": None,
+    }
+    _task_queue.append(task["id"])
+    _active_tasks[task["id"]] = task
+
+    # Persist
+    tasks = _load_json(TASKS_FILE, [])
+    tasks.insert(0, task)
+    if len(tasks) > 200:
+        tasks = tasks[:200]
+    _save_json(TASKS_FILE, tasks)
+
+    OrchestrationEvent.publish({"type": "task_created", "task": task})
+    append_audit({"action": "task_created", "task_id": task["id"], "title": data.title})
+    return task
+
+@app.get("/api/tasks/{task_id}")
+def get_task(task_id: str):
+    if task_id in _active_tasks:
+        return _active_tasks[task_id]
+    tasks = _load_json(TASKS_FILE, [])
+    for t in tasks:
+        if t["id"] == task_id:
+            return t
+    raise HTTPException(404, "Task not found")
+
+@app.post("/api/tasks/{task_id}/action")
+def task_action(task_id: str, data: TaskAction):
+    """Execute action on a task: cancel, retry, reroute."""
+    task = _active_tasks.get(task_id)
+    if not task:
+        tasks = _load_json(TASKS_FILE, [])
+        for t in tasks:
+            if t["id"] == task_id:
+                task = t
+                break
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    action = data.action
+    if action == "cancel":
+        task["status"] = "cancelled"
+        task["completed"] = get_timestamp()
+    elif action == "retry":
+        task["status"] = "pending"
+        task["progress"] = 0
+        task["error"] = None
+    elif action == "reroute":
+        if data.target_agent:
+            task["agent"] = data.target_agent
+            task["status"] = "pending"
+            task["progress"] = 0
+
+    _active_tasks[task["id"]] = task
+    OrchestrationEvent.publish({"type": "task_action", "task_id": task_id, "action": action})
+    return task
+
+@app.post("/api/tasks/{task_id}/progress")
+def update_task_progress(task_id: str, progress: int = 0):
+    """Update task progress (0-100)."""
+    if task_id in _active_tasks:
+        _active_tasks[task_id]["progress"] = min(100, max(0, progress))
+        OrchestrationEvent.publish({"type": "task_progress", "task_id": task_id, "progress": progress})
+        return _active_tasks[task_id]
+    raise HTTPException(404, "Task not found")
+
+# ─── 4. Agent Configuration & Capability Matrix ─────────────────
+
+DEFAULT_AGENT_CONFIGS = {
+    "opencode": {
+        "name": "opencode",
+        "display_name": "OpenCode",
+        "icon": "🔧",
+        "enabled": True,
+        "default_model": "deepseek-v4-pro",
+        "provider": "deepseek",
+        "rate_limit": 0,
+        "capabilities": ["code_generation", "devops", "file_operations", "git", "terraform", "docker", "testing", "scripting"],
+        "context_window": 128000,
+        "api_key_status": "ok",
+        "description": "Code & DevOps — infrastructure, git, file ops, deployment",
+    },
+    "hermes": {
+        "name": "hermes",
+        "display_name": "Hermes",
+        "icon": "⚡",
+        "enabled": True,
+        "default_model": "deepseek/deepseek-chat",
+        "provider": "openrouter",
+        "rate_limit": 0,
+        "capabilities": ["memory", "scheduling", "messaging", "skills", "plugins", "backup", "channel_management"],
+        "context_window": 128000,
+        "api_key_status": "ok",
+        "description": "Memory & Scheduling — context, cron jobs, messaging, skill orchestration",
+    },
+    "gemini": {
+        "name": "gemini",
+        "display_name": "Gemini CLI",
+        "icon": "🧠",
+        "enabled": True,
+        "default_model": "gemini-2.5-pro",
+        "provider": "gemini",
+        "rate_limit": 0,
+        "capabilities": ["research", "analysis", "document_review", "language_translation", "search", "study"],
+        "context_window": 1000000,
+        "api_key_status": "ok",
+        "description": "Research & Analysis — deep research, document review, language tasks",
+    },
+    "jcode": {
+        "name": "jcode",
+        "display_name": "jcode",
+        "icon": "⚡",
+        "enabled": True,
+        "default_model": "deepseek-v4-pro",
+        "provider": "deepseek",
+        "rate_limit": 0,
+        "capabilities": ["javascript", "nodejs", "typescript", "frontend", "react", "vue", "npm", "web_development"],
+        "context_window": 128000,
+        "api_key_status": "ok",
+        "description": "JavaScript & Node.js — JS, TS, frontend, web development",
+    },
+}
+
+@app.get("/api/agents/config")
+def get_agent_configs():
+    """Get all agent configurations."""
+    config = _load_json(AGENT_CONFIG_FILE, {})
+    agents = []
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        default = DEFAULT_AGENT_CONFIGS[name].copy()
+        stored = config.get(name, {})
+        default.update(stored)
+        agents.append(default)
+    return {"agents": agents, "updated": get_timestamp()}
+
+@app.get("/api/agents/config/{name}")
+def get_agent_config(name: str):
+    if name not in ["opencode", "hermes", "gemini", "jcode"]:
+        raise HTTPException(400, "Invalid agent")
+    config = _load_json(AGENT_CONFIG_FILE, {})
+    default = DEFAULT_AGENT_CONFIGS[name].copy()
+    default.update(config.get(name, {}))
+    return default
+
+@app.put("/api/agents/config/{name}")
+def update_agent_config(name: str, data: AgentConfigUpdate):
+    if name not in ["opencode", "hermes", "gemini", "jcode"]:
+        raise HTTPException(400, "Invalid agent")
+    config = _load_json(AGENT_CONFIG_FILE, {})
+    config[name] = {
+        "enabled": data.enabled,
+        "default_model": data.default_model,
+        "rate_limit": data.rate_limit,
+        "capabilities": data.capabilities,
+        "api_key_status": data.api_key_status,
+    }
+    _save_json(AGENT_CONFIG_FILE, config)
+    append_audit({"action": "agent_config_updated", "agent": name})
+    return {"status": "updated", "agent": name}
+
+# ─── 5. Conversation & Context Inspector ─────────────────────────
+
+@app.get("/api/conversations")
+def list_conversations(agent: str = "", limit: int = 50):
+    """Browse recent conversations across agents."""
+    history = load_chat_history()
+    messages = history.get("messages", [])
+
+    if agent:
+        messages = [m for m in messages if m.get("agent") == agent]
+
+    # Group into conversations (sessions)
+    conversations = []
+    current = None
+    for msg in messages[-500:]:
+        if msg["role"] == "user":
+            if current:
+                conversations.append(current)
+            current = {"id": msg["id"], "agent": msg.get("agent", ""), "user_message": msg["content"][:100],
+                       "timestamp": msg["timestamp"], "messages": [msg], "token_count": len(msg["content"]) // 4}
+        elif current:
+            current["messages"].append(msg)
+            current["token_count"] = current.get("token_count", 0) + len(msg.get("content", "")) // 4
+    if current:
+        conversations.append(current)
+
+    return {
+        "conversations": conversations[-limit:],
+        "total": len(conversations),
+    }
+
+@app.get("/api/conversations/{conv_id}")
+def get_conversation(conv_id: str):
+    """Get full conversation context with token breakdown."""
+    history = load_chat_history()
+    messages = history.get("messages", [])
+    conv = []
+    found = False
+    for msg in messages:
+        if msg["id"] == conv_id:
+            found = True
+        if found:
+            conv.append(msg)
+            if msg["role"] == "assistant" and msg != conv[0]:
+                break
+
+    if not conv:
+        raise HTTPException(404, "Conversation not found")
+
+    total_tokens = sum(len(m.get("content", "")) // 4 for m in conv)
+    return {
+        "conversation": conv,
+        "total_tokens": total_tokens,
+        "message_count": len(conv),
+        "agent": conv[0].get("agent", "") if conv else "",
+    }
+
+# ─── 6. Pipeline/Workflow Orchestrator ──────────────────────────
+
+@app.get("/api/workflows")
+def list_workflows():
+    """List all defined pipelines/workflows."""
+    return _load_json(WORKFLOWS_FILE, {"workflows": [], "runs": []})
+
+@app.post("/api/workflows")
+def create_workflow(data: WorkflowCreate):
+    """Create a new workflow pipeline."""
+    workflows = _load_json(WORKFLOWS_FILE, {"workflows": [], "runs": []})
+    wf = {
+        "id": str(uuid.uuid4())[:8],
+        "name": data.name,
+        "description": data.description,
+        "nodes": data.nodes,
+        "enabled": data.enabled,
+        "created": get_timestamp(),
+        "run_count": 0,
+        "last_run": None,
+    }
+    workflows["workflows"].append(wf)
+    _save_json(WORKFLOWS_FILE, workflows)
+    append_audit({"action": "workflow_created", "name": data.name})
+    return wf
+
+@app.post("/api/workflows/{wf_id}/run")
+def run_workflow(wf_id: str):
+    """Execute a workflow pipeline."""
+    workflows = _load_json(WORKFLOWS_FILE, {"workflows": [], "runs": []})
+    wf = None
+    for w in workflows["workflows"]:
+        if w["id"] == wf_id:
+            wf = w
+            break
+    if not wf:
+        raise HTTPException(404, "Workflow not found")
+
+    run_id = str(uuid.uuid4())[:8]
+    run = {
+        "id": run_id,
+        "workflow_id": wf_id,
+        "name": wf["name"],
+        "status": "running",
+        "nodes": {n.get("id", ""): "pending" for n in wf["nodes"]},
+        "started": get_timestamp(),
+        "completed": None,
+    }
+    workflows.setdefault("runs", []).append(run)
+    if len(workflows["runs"]) > 100:
+        workflows["runs"] = workflows["runs"][-100:]
+    wf["run_count"] += 1
+    wf["last_run"] = get_timestamp()
+    _save_json(WORKFLOWS_FILE, workflows)
+
+    OrchestrationEvent.publish({"type": "workflow_started", "workflow": wf["name"], "run_id": run_id})
+    append_audit({"action": "workflow_run", "name": wf["name"], "run_id": run_id})
+    return {"status": "started", "run": run}
+
+@app.post("/api/workflows/{wf_id}/runs/{run_id}/node")
+def update_workflow_node(wf_id: str, run_id: str, node_id: str = "", status: str = "completed"):
+    """Update a workflow node status."""
+    workflows = _load_json(WORKFLOWS_FILE, {"workflows": [], "runs": []})
+    for run in workflows.get("runs", []):
+        if run["id"] == run_id:
+            run["nodes"][node_id] = status
+            if all(s == "completed" for s in run["nodes"].values()):
+                run["status"] = "completed"
+                run["completed"] = get_timestamp()
+            elif any(s == "failed" for s in run["nodes"].values()):
+                run["status"] = "failed"
+                run["completed"] = get_timestamp()
+            _save_json(WORKFLOWS_FILE, workflows)
+            return {"status": "updated", "run_status": run["status"]}
+    raise HTTPException(404, "Run not found")
+
+@app.delete("/api/workflows/{wf_id}")
+def delete_workflow(wf_id: str):
+    workflows = _load_json(WORKFLOWS_FILE, {"workflows": [], "runs": []})
+    workflows["workflows"] = [w for w in workflows["workflows"] if w["id"] != wf_id]
+    _save_json(WORKFLOWS_FILE, workflows)
+    return {"status": "deleted"}
+
+# ─── 7. Enhanced Cost & Token Analytics ─────────────────────────
+
+@app.get("/api/analytics/cost-summary")
+def get_cost_summary():
+    """Enhanced cost summary with per-agent breakdown."""
+    cost_data = _load_json(BASE_DIR / "data" / "cost-history.json", {"entries": [], "daily_totals": {}, "monthly_projection": 0, "free_tier_alerts": []})
+    entries = cost_data.get("entries", [])
+
+    per_agent = {}
+    per_model = {}
+    total_cost = 0
+    total_tokens = 0
+    today = get_timestamp()[:10]
+    today_cost = 0
+
+    for e in entries:
+        agent = e.get("agent", "unknown")
+        model = e.get("model", "unknown")
+        cost = e.get("cost", 0.0)
+        tokens = e.get("tokens", 0)
+
+        total_cost += cost
+        total_tokens += tokens
+        if e.get("timestamp", "").startswith(today):
+            today_cost += cost
+
+        per_agent[agent] = per_agent.get(agent, 0) + cost
+        per_model[model] = per_model.get(model, 0) + cost
+
+    # Last 7 days
+    dates = []
+    for i in range(6, -1, -1):
+        from datetime import timedelta
+        d = (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%Y-%m-%d")
+        dates.append(d)
+
+    daily = []
+    for d in dates:
+        day_cost = sum(e.get("cost", 0) for e in entries if e.get("timestamp", "").startswith(d))
+        day_tokens = sum(e.get("tokens", 0) for e in entries if e.get("timestamp", "").startswith(d))
+        daily.append({"date": d, "cost": round(day_cost, 6), "tokens": day_tokens})
+
+    return {
+        "total_cost": round(total_cost, 6),
+        "total_tokens": total_tokens,
+        "today_cost": round(today_cost, 6),
+        "per_agent": per_agent,
+        "per_model": per_model,
+        "daily": daily,
+        "entry_count": len(entries),
+        "alerts": cost_data.get("free_tier_alerts", []),
+        "monthly_projection": cost_data.get("monthly_projection", 0),
+    }
+
+@app.get("/api/analytics/token-usage")
+def get_token_usage():
+    """Real-time token usage per agent."""
+    metrics = _load_json(METRICS_FILE, {"agents": {}, "history": []})
+    usage = {}
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        runs = metrics.get("agents", {}).get(name, {}).get("runs", [])
+        total = sum(r.get("tokens_used", 0) for r in runs)
+        today = sum(r.get("tokens_used", 0) for r in runs if r.get("timestamp", "").startswith(get_timestamp()[:10]))
+        usage[name] = {"total": total, "today": today}
+    return {"usage": usage, "updated": get_timestamp()}
+
+# ─── 8. Alerting & Notification Center ──────────────────────────
+
+@app.get("/api/alerts/rules")
+def get_alert_rules():
+    """Get all alert rules."""
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    return {"rules": alerts.get("rules", []), "history": alerts.get("history", [])[-50:]}
+
+@app.post("/api/alerts/rules")
+def create_alert_rule(data: AlertRule):
+    """Create an alert rule."""
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    rule = {
+        "id": str(uuid.uuid4())[:8],
+        "name": data.name,
+        "type": data.type,
+        "threshold": data.threshold,
+        "agent": data.agent,
+        "enabled": data.enabled,
+        "channels": data.channels,
+        "created": get_timestamp(),
+        "last_triggered": None,
+        "trigger_count": 0,
+    }
+    alerts["rules"].append(rule)
+    _save_json(ALERTS_FILE, alerts)
+    return rule
+
+@app.put("/api/alerts/rules/{rule_id}")
+def update_alert_rule(rule_id: str, data: dict):
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    for rule in alerts["rules"]:
+        if rule["id"] == rule_id:
+            rule.update(data)
+            _save_json(ALERTS_FILE, alerts)
+            return rule
+    raise HTTPException(404, "Rule not found")
+
+@app.delete("/api/alerts/rules/{rule_id}")
+def delete_alert_rule(rule_id: str):
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    alerts["rules"] = [r for r in alerts["rules"] if r["id"] != rule_id]
+    _save_json(ALERTS_FILE, alerts)
+    return {"status": "deleted"}
+
+@app.post("/api/alerts/test")
+def test_alert():
+    """Test the alerting system."""
+    alert = {
+        "id": str(uuid.uuid4())[:8],
+        "type": "test",
+        "message": "This is a test alert from Agentic OS",
+        "severity": "info",
+        "timestamp": get_timestamp(),
+    }
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    alerts["history"].append(alert)
+    _save_json(ALERTS_FILE, alerts)
+    OrchestrationEvent.publish({"type": "alert", "alert": alert})
+    return {"status": "sent", "alert": alert}
+
+@app.get("/api/alerts/unread")
+def get_unread_alerts():
+    """Get unread alert count."""
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    unread = [a for a in alerts.get("history", []) if a.get("read") != True]
+    return {"count": len(unread), "alerts": unread}
+
+@app.post("/api/alerts/read-all")
+def mark_alerts_read():
+    alerts = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+    for a in alerts.get("history", []):
+        a["read"] = True
+    _save_json(ALERTS_FILE, alerts)
+    return {"status": "marked"}
+
+# ─── 9. System Health & Resource Monitoring ─────────────────────
+
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
+@app.get("/api/system/health")
+def get_system_health():
+    """System resource monitoring."""
+    info = {
+        "timestamp": get_timestamp(),
+        "has_psutil": HAS_PSUTIL,
+    }
+    if HAS_PSUTIL:
+        info["cpu"] = {
+            "percent": psutil.cpu_percent(interval=0.1),
+            "cores": psutil.cpu_count(),
+            "load_avg": list(psutil.getloadavg()) if hasattr(psutil, "getloadavg") else [],
+        }
+        mem = psutil.virtual_memory()
+        info["memory"] = {
+            "total_gb": round(mem.total / (1024**3), 1),
+            "used_gb": round(mem.used / (1024**3), 1),
+            "available_gb": round(mem.available / (1024**3), 1),
+            "percent": mem.percent,
+        }
+        disk = psutil.disk_usage("/")
+        info["disk"] = {
+            "total_gb": round(disk.total / (1024**3), 1),
+            "used_gb": round(disk.used / (1024**3), 1),
+            "free_gb": round(disk.free / (1024**3), 1),
+            "percent": disk.percent,
+        }
+        net = psutil.net_io_counters()
+        info["network"] = {
+            "sent_mb": round(net.bytes_sent / (1024**2), 1),
+            "recv_mb": round(net.bytes_recv / (1024**2), 1),
+        }
+        # Process info
+        try:
+            proc = psutil.Process()
+            info["process"] = {
+                "pid": proc.pid,
+                "memory_mb": round(proc.memory_info().rss / (1024**2), 1),
+                "cpu_percent": proc.cpu_percent(interval=0.1),
+                "threads": proc.num_threads(),
+                "uptime_seconds": int(time.time() - proc.create_time()),
+            }
+        except:
+            pass
+    else:
+        info["note"] = "Install psutil for full system metrics: pip install psutil"
+
+    return info
+
+@app.get("/api/system/health/history")
+def get_system_health_history(limit: int = 100):
+    """Historical system health data."""
+    hf = BASE_DIR / "data" / "system-health.json"
+    if not hf.exists():
+        return {"history": [], "note": "No historical data. Enable periodic collection."}
+    history = _load_json(hf, [])
+    return {"history": history[-limit:], "total": len(history)}
+
+# ─── 10. Agent A/B Testing & Comparison ─────────────────────────
+
+@app.post("/api/comparison")
+def run_comparison(data: ComparisonRequest):
+    """Run side-by-side agent comparison on the same prompt."""
+    results = {}
+    for agent in data.agents:
+        if agent not in ["opencode", "hermes", "gemini", "jcode"]:
+            continue
+        try:
+            response = execute_agent(agent, data.prompt)
+            results[agent] = {
+                "response": response[:2000],
+                "response_length": len(response),
+                "tokens_approx": len(response) // 4,
+                "success": not response.startswith("⚠"),
+            }
+        except Exception as e:
+            results[agent] = {"response": str(e), "error": True, "success": False}
+
+    comparison = {
+        "id": str(uuid.uuid4())[:8],
+        "prompt": data.prompt[:200],
+        "agents": data.agents,
+        "results": results,
+        "timestamp": get_timestamp(),
+    }
+
+    # Save history
+    comps = _load_json(COMPARISONS_FILE, [])
+    comps.append(comparison)
+    if len(comps) > 50:
+        comps = comps[-50:]
+    _save_json(COMPARISONS_FILE, comps)
+
+    return comparison
+
+@app.get("/api/comparison/history")
+def get_comparison_history():
+    """Get past comparison results."""
+    return _load_json(COMPARISONS_FILE, [])
+
+# ─── Scheduled Reports & Email Digest ──────────────────────────
+
+REPORTS_FILE = BASE_DIR / "data" / "reports.json"
+
+class ReportSchedule(BaseModel):
+    name: str
+    frequency: str = "daily"  # daily, weekly, monthly
+    recipients: str = ""  # comma-separated emails
+    include_sections: list = ["summary", "agents", "cost", "errors"]
+    enabled: bool = True
+
+@app.get("/api/reports/config")
+def get_report_configs():
+    return _load_json(REPORTS_FILE, {"schedules": [], "history": []})
+
+@app.post("/api/reports/schedule")
+def schedule_report(data: ReportSchedule):
+    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
+    schedule = {
+        "id": str(uuid.uuid4())[:8],
+        "name": data.name,
+        "frequency": data.frequency,
+        "recipients": data.recipients,
+        "include_sections": data.include_sections,
+        "enabled": data.enabled,
+        "created": get_timestamp(),
+        "last_sent": None,
+        "sent_count": 0,
+    }
+    reports["schedules"].append(schedule)
+    _save_json(REPORTS_FILE, reports)
+    return schedule
+
+@app.delete("/api/reports/schedule/{schedule_id}")
+def delete_report_schedule(schedule_id: str):
+    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
+    reports["schedules"] = [s for s in reports["schedules"] if s["id"] != schedule_id]
+    _save_json(REPORTS_FILE, reports)
+    return {"status": "deleted"}
+
+@app.post("/api/reports/generate")
+def generate_report():
+    """Generate a summary report of current system state."""
+    # Gather all data
+    status = {"agents": [check_agent(a) for a in ["opencode", "hermes", "gemini", "jcode"]]}
+    metrics = _load_json(METRICS_FILE, {"agents": {}, "history": []})
+    cost_data = _load_json(BASE_DIR / "data" / "cost-history.json", {"entries": []})
+    tasks_data = _load_json(TASKS_FILE, [])
+    errors_data = json.loads(ERROR_LOG_FILE.read_text()) if ERROR_LOG_FILE.exists() else []
+    alerts_data = _load_json(ALERTS_FILE, {"rules": [], "history": []})
+
+    # Agent summary
+    agent_summary = {}
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        runs = metrics.get("agents", {}).get(name, {}).get("runs", [])
+        today_runs = [r for r in runs if r.get("timestamp", "").startswith(get_timestamp()[:10])]
+        agent_summary[name] = {
+            "status": check_agent(name)["status"],
+            "total_runs": len(runs),
+            "today_runs": len(today_runs),
+            "success_rate": round(sum(1 for r in runs if r.get("success", True)) / len(runs) * 100, 1) if runs else 100,
+            "total_tokens": sum(r.get("tokens_used", 0) for r in runs),
+            "total_cost": round(sum(r.get("cost", 0) for r in runs), 6),
+        }
+
+    # Cost summary
+    entries = cost_data.get("entries", [])
+    today_cost = sum(e.get("cost", 0) for e in entries if e.get("timestamp", "").startswith(get_timestamp()[:10]))
+    total_cost = sum(e.get("cost", 0) for e in entries)
+
+    # Task summary
+    task_statuses = {"pending": 0, "running": 0, "completed": 0, "failed": 0}
+    for t in tasks_data:
+        s = t.get("status", "pending")
+        task_statuses[s] = task_statuses.get(s, 0) + 1
+
+    # Error summary
+    recent_errors = errors_data[-10:] if errors_data else []
+
+    report = {
+        "id": str(uuid.uuid4())[:8],
+        "generated": get_timestamp(),
+        "title": f"Agentic OS Report — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}",
+        "summary": {
+            "agents_online": sum(1 for a in status["agents"] if a["status"] == "online"),
+            "agents_total": len(status["agents"]),
+            "active_tasks": task_statuses.get("running", 0),
+            "today_cost": round(today_cost, 6),
+            "total_cost": round(total_cost, 6),
+            "unread_alerts": len([a for a in alerts_data.get("history", []) if not a.get("read")]),
+        },
+        "agents": agent_summary,
+        "tasks": task_statuses,
+        "cost": {"today": round(today_cost, 6), "total": round(total_cost, 6)},
+        "errors": [{"message": e.get("message", "")[:100], "category": e.get("category", "")} for e in recent_errors],
+        "top_skills": [],  # populated below
+    }
+
+    # Top skills
+    skills_dir = BASE_DIR / "skills"
+    skill_runs = []
+    for d in skills_dir.iterdir():
+        if d.is_dir() and not d.name.startswith("_"):
+            score_path = d / "score-history.json"
+            scores = json.loads(score_path.read_text()) if score_path.exists() else []
+            if scores:
+                skill_runs.append({"name": d.name, "runs": len(scores), "avg_score": round(sum(s.get("score", 0) for s in scores) / len(scores), 2)})
+    report["top_skills"] = sorted(skill_runs, key=lambda x: x["runs"], reverse=True)[:5]
+
+    # Save history
+    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
+    reports.setdefault("history", []).append(report)
+    if len(reports["history"]) > 50:
+        reports["history"] = reports["history"][-50:]
+    _save_json(REPORTS_FILE, reports)
+
+    return report
+
+@app.post("/api/reports/send/{schedule_id}")
+def send_report(schedule_id: str):
+    """Trigger sending a scheduled report."""
+    reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
+    schedule = None
+    for s in reports.get("schedules", []):
+        if s["id"] == schedule_id:
+            schedule = s
+            break
+    if not schedule:
+        raise HTTPException(404, "Schedule not found")
+
+    # Generate report
+    report = generate_report()
+    schedule["last_sent"] = get_timestamp()
+    schedule["sent_count"] = schedule.get("sent_count", 0) + 1
+
+    recipients = [r.strip() for r in schedule.get("recipients", "").split(",") if r.strip()]
+    _save_json(REPORTS_FILE, reports)
+
+    # Build markdown
+    md = f"""# {report['title']}
+
+## Summary
+- 🟢 Agents: **{report['summary']['agents_online']}/{report['summary']['agents_total']}** online
+- 📋 Tasks: **{report['summary']['active_tasks']}** active
+- 💰 Cost today: **${report['summary']['today_cost']:.4f}**
+- 🔔 Alerts: **{report['summary']['unread_alerts']}** unread
+
+## Agent Performance
+"""
+    for name, a in report["agents"].items():
+        md += f"- **{name}**: {a['status']} | {a['today_runs']} runs today | {a['success_rate']}% success | ${a['total_cost']:.4f}\n"
+
+    md += f"\n## Tasks\n- Pending: {report['tasks'].get('pending', 0)}\n- Running: {report['tasks'].get('running', 0)}\n- Completed: {report['tasks'].get('completed', 0)}\n- Failed: {report['tasks'].get('failed', 0)}\n"
+
+    if report["top_skills"]:
+        md += "\n## Top Skills\n"
+        for sk in report["top_skills"]:
+            md += f"- {sk['name']}: {sk['runs']} runs, avg score {sk['avg_score']}\n"
+
+    if report["errors"]:
+        md += f"\n## Recent Errors ({len(report['errors'])})\n"
+        for e in report["errors"][:5]:
+            md += f"- [{e['category']}] {e['message']}\n"
+
+    append_audit({"action": "report_sent", "schedule": schedule["name"], "recipients": recipients})
+    return {"status": "sent", "report": report, "markdown": md, "recipients": recipients}
+
+
+# ─── 3. Global Search ─────────────────────────────────────────────
+
+@app.get("/api/search")
+def global_search(q: str = Query(""), limit: int = Query(20, le=50)):
+    """Search across all data sources."""
+    if not q or len(q) < 2:
+        return {"query": q, "results": [], "total": 0}
+
+    ql = q.lower()
+    results = []
+
+    # Search conversations
+    chat = load_chat_history()
+    for msg in chat.get("messages", []):
+        if ql in (msg.get("content", "") or "").lower():
+            results.append({
+                "source": "conversation",
+                "title": (msg.get("content", "") or "")[:80],
+                "preview": (msg.get("content", "") or "")[:150],
+                "agent": msg.get("agent", ""),
+                "timestamp": msg.get("timestamp", ""),
+                "link": f"#conversation-inspector",
+            })
+
+    # Search tasks
+    tasks = list(_active_tasks.values())
+    for t in _load_json(TASKS_FILE, []):
+        if t["id"] not in _active_tasks:
+            tasks.append(t)
+    for t in tasks:
+        if ql in (t.get("title", "") + t.get("description", "")).lower():
+            results.append({
+                "source": "task",
+                "title": t.get("title", ""),
+                "preview": (t.get("description", "") or t.get("title", ""))[:150],
+                "status": t.get("status", ""),
+                "agent": t.get("agent", ""),
+                "timestamp": t.get("created", ""),
+                "link": f"#task-queue",
+            })
+
+    # Search skills
+    for d in sorted((BASE_DIR / "skills").iterdir()):
+        if d.is_dir() and not d.name.startswith("_"):
+            skill_md = read_file(d / "SKILL.md")
+            learnings = read_file(d / "learnings.md")
+            if ql in d.name or ql in skill_md.lower() or ql in learnings.lower():
+                results.append({
+                    "source": "skill",
+                    "title": d.name,
+                    "preview": skill_md[:150] if skill_md else "",
+                    "timestamp": "",
+                    "link": f"#skills",
+                })
+
+    # Search audit
+    for e in (api_get_audit_entries())[-200:]:
+        entry_text = json.dumps(e).lower()
+        if ql in entry_text:
+            results.append({
+                "source": "audit",
+                "title": e.get("action", ""),
+                "preview": f"{e.get('skill', '')} {e.get('agent', '')} #{e.get('run_id', '')}".strip()[:150],
+                "timestamp": e.get("timestamp", ""),
+                "link": "#audit",
+            })
+
+    # Search brain/memory
+    brain_dir = BASE_DIR / "brain"
+    if brain_dir.exists():
+        for f in brain_dir.glob("*.md"):
+            content = read_file(f)
+            if ql in f.name.lower() or ql in content.lower():
+                results.append({
+                    "source": "memory",
+                    "title": f.name.replace(".md", ""),
+                    "preview": content[:150],
+                    "timestamp": "",
+                    "link": "#memory",
+                })
+
+    # Sort by recency, deduplicate loosely
+    results.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
+    total = len(results)
+    results = results[:limit]
+
+    return {
+        "query": q,
+        "results": results,
+        "total": total,
+        "by_source": {
+            src: len([r for r in results if r["source"] == src])
+            for src in ["conversation", "task", "skill", "audit", "memory"]
+            if any(r["source"] == src for r in results)
+        },
+    }
+
+def api_get_audit_entries():
+    audit_file = BASE_DIR / "audit" / "audit.log"
+    if not audit_file.exists():
+        return []
+    return [json.loads(l) for l in audit_file.read_text().strip().split("\n") if l.strip()]
+
+# ─── 4. Auto-Mode: Agent Self-Scheduling ────────────────────────
+
+AGENT_CAPABILITIES = {
+    "opencode": ["code", "devops", "deploy", "git", "file", "terraform", "docker", "test", "build", "infra", "script", "api"],
+    "hermes": ["memory", "schedule", "channel", "skill", "cron", "reminder", "brain", "plugin", "backup", "orchestrate"],
+    "gemini": ["research", "analyze", "search", "compare", "explain", "study", "learn", "document", "report", "review"],
+    "jcode": ["javascript", "node", "js", "script", "npm", "frontend", "react", "vue", "typescript", "web", "api"],
+}
+
+@app.post("/api/tasks/auto-route")
+def auto_route_task(data: TaskCreate):
+    """Auto-assign a task to the best agent based on capabilities and load."""
+    task_text = (data.title + " " + data.description).lower()
+
+    # Score each agent
+    scores = {}
+    for agent, keywords in AGENT_CAPABILITIES.items():
+        score = sum(1 for k in keywords if k in task_text)
+        # Bonus for explicit agent mention
+        if agent in task_text:
+            score += 3
+        scores[agent] = score
+
+    # Adjust for current load
+    for name in ["opencode", "hermes", "gemini", "jcode"]:
+        active = len([t for t in _active_tasks.values() if t.get("agent") == name and t.get("status") == "running"])
+        scores[name] = scores.get(name, 0) - (active * 0.5)
+
+    best = max(scores, key=scores.get)
+    confidence = "high" if scores[best] >= 2 else "medium" if scores[best] >= 1 else "low"
+
+    # Create task assigned to best agent
+    task = {
+        "id": str(uuid.uuid4())[:8],
+        "title": data.title,
+        "description": data.description,
+        "agent": best,
+        "priority": data.priority,
+        "status": "pending",
+        "progress": 0,
+        "created": get_timestamp(),
+        "started": None,
+        "completed": None,
+        "error": None,
+        "auto_routed": True,
+        "routing_scores": scores,
+        "routing_confidence": confidence,
+    }
+    _task_queue.append(task["id"])
+    _active_tasks[task["id"]] = task
+
+    tasks = _load_json(TASKS_FILE, [])
+    tasks.insert(0, task)
+    if len(tasks) > 200:
+        tasks = tasks[:200]
+    _save_json(TASKS_FILE, tasks)
+
+    OrchestrationEvent.publish({"type": "task_auto_routed", "task": task, "best_agent": best, "confidence": confidence})
+    append_audit({"action": "task_auto_routed", "task_id": task["id"], "agent": best, "confidence": confidence})
+
+    return {
+        "task": task,
+        "routed_to": best,
+        "confidence": confidence,
+        "all_scores": {k: round(v, 1) for k, v in scores.items()},
+    }
+
 
 # ─── Main ─────────────────────────────────────────────────────────
 
