@@ -8,6 +8,7 @@ async function renderSkills() {
       </div>
       <div class="btn-group">
         <button class="btn btn-primary" onclick="showNewSkill()">+ New Skill</button>
+        <button class="btn" onclick="showAiSkillGenerator()" style="background:linear-gradient(135deg,var(--accent),#fd79a8);color:white;border:none">🤖 AI Generate</button>
         <input id="skillFilter" class="form-input" style="width:200px" placeholder="Filter skills..." oninput="filterSkills()">
       </div>
     </div>
@@ -246,4 +247,63 @@ async function deleteSkill(name) {
     showToast(`"${name}" deleted`, 'success');
     renderSkills();
   } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
+}
+
+
+async function showAiSkillGenerator() {
+  showModal('🤖 AI Skill Generator', `
+    <div class="form-group">
+      <label class="form-label">Describe your skill idea</label>
+      <textarea id="aiSkillIdea" class="form-textarea" rows="5" placeholder="Example: A skill that analyzes website SEO and suggests improvements. It should check meta tags, headings, keywords, page speed, and generate a report with actionable fixes."></textarea>
+      <div class="form-hint">Write naturally — the AI will format it into a professional SKILL.md</div>
+    </div>
+    <div id="aiSkillResult" style="display:none;margin-top:12px">
+      <label class="form-label">Generated SKILL.md</label>
+      <pre id="aiSkillContent" style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;font-size:11px;font-family:var(--font-mono);white-space:pre-wrap;max-height:300px;overflow-y:auto"></pre>
+      <div id="aiSkillActions" style="display:flex;gap:8px;margin-top:8px">
+        <input id="aiSkillName" class="form-input" placeholder="skill-name" style="flex:1;font-size:12px">
+        <button class="btn btn-sm" onclick="copyAiSkill()">📋 Copy</button>
+        <button class="btn btn-sm btn-primary" onclick="saveAiSkill()">💾 Save as Skill</button>
+      </div>
+    </div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="generateAiSkill()" id="aiGenBtn">🤖 Generate</button>
+  `);
+}
+
+async function generateAiSkill() {
+  const idea = document.getElementById('aiSkillIdea').value.trim();
+  if (idea.length < 10) { showToast('Please describe your idea (at least 10 chars)', 'warning'); return; }
+  const btn = document.getElementById('aiGenBtn');
+  btn.disabled = true; btn.textContent = '⏳ Generating...';
+  try {
+    const res = await api.aiGenerateSkill(idea);
+    document.getElementById('aiSkillContent').textContent = res.skill_md || '';
+    document.getElementById('aiSkillResult').style.display = 'block';
+    // Auto-suggest name from first line
+    const firstLine = (res.skill_md || '').split('\\n')[0].replace(/^# /, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '');
+    document.getElementById('aiSkillName').value = firstLine || 'new-skill';
+    btn.disabled = false; btn.textContent = '🤖 Regenerate';
+  } catch (err) {
+    showToast(err.message, 'error');
+    btn.disabled = false; btn.textContent = '🤖 Generate';
+  }
+}
+
+function copyAiSkill() {
+  const content = document.getElementById('aiSkillContent').textContent;
+  navigator.clipboard.writeText(content).then(() => showToast('Copied!', 'success'));
+}
+
+async function saveAiSkill() {
+  const name = document.getElementById('aiSkillName').value.trim();
+  const content = document.getElementById('aiSkillContent').textContent;
+  if (!name) { showToast('Enter a skill name', 'warning'); return; }
+  try {
+    await api.generateSkill(name, content);
+    closeModal();
+    showToast(`Skill "${name}" saved!`, 'success');
+    renderSkills();
+  } catch (err) { showToast(err.message, 'error'); }
 }

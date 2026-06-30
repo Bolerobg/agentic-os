@@ -1353,6 +1353,54 @@ def delete_skill(name: str):
     append_audit({"action": "skill_deleted", "name": name})
     return {"status": "deleted", "name": name}
 
+@app.post("/api/skills/ai-generate")
+def ai_generate_skill(data: dict):
+    """AI generates a proper SKILL.md from a natural language idea."""
+    idea = (data.get("idea", "") or "").strip()
+    if not idea or len(idea) < 10:
+        raise HTTPException(400, "Please describe your skill idea in at least 10 characters")
+
+    prompt = f"""You are a skill designer for Agentic OS. Convert this idea into a professional SKILL.md file.
+
+USER'S IDEA:
+{idea}
+
+Return ONLY the SKILL.md content in this exact format:
+
+# [Skill Title — short, descriptive]
+
+[One-line description of what this skill does]
+
+## Description
+[2-3 sentences explaining the skill in detail]
+
+## When to Use
+- [Scenario 1]
+- [Scenario 2]
+- [Scenario 3]
+
+## Input
+[What inputs does this skill need?]
+
+## Output
+[What does it produce?]
+
+## Primary Agent
+[Suggest which agent: opencode/hermes/gemini/jcode and why]
+
+## Example Prompts
+- "[Example prompt 1]"
+- "[Example prompt 2]"
+
+Generate a complete, professional SKILL.md now:"""
+
+    try:
+        response = call_llm([{"role": "user", "content": prompt}], provider="deepseek")
+        return {"skill_md": response, "idea": idea}
+    except Exception as e:
+        return {"skill_md": f"Error generating: {e}", "idea": idea}
+
+
 # ─── Routes: Error Tracking (v0.3.0) ───────────────────────────────
 
 ERROR_LOG_FILE = BASE_DIR / "data" / "error-log.json"
