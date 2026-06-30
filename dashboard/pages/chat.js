@@ -162,11 +162,11 @@ function updateModelSelect(agent) {
   const sel = document.getElementById('chatModelSelect');
   const models = {
     'opencode': [['','DeepSeek v4-pro (default)'],['deepseek-v4-pro','DeepSeek v4-pro'],['deepseek-chat','DeepSeek Chat']],
-    'hermes': [['','OpenRouter default'],['deepseek/deepseek-chat','DeepSeek Chat'],['deepseek/deepseek-r1','DeepSeek R1'],['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet'],['openai/gpt-4o','GPT-4o'],['google/gemini-2.5-pro','Gemini 2.5 Pro'],['google/gemini-2.5-flash','Gemini 2.5 Flash'],['meta-llama/llama-4-maverick','Llama 4 Maverick'],['qwen/qwen3-235b','Qwen 3 235B'],['mistralai/mistral-large','Mistral Large']],
+    'hermes': [['deepseek/deepseek-chat','DeepSeek v4-pro (default)'],['openai/gpt-4o','GPT-4o'],['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet'],['google/gemini-2.5-pro','Gemini 2.5 Pro'],['google/gemini-2.5-flash','Gemini 2.5 Flash'],['meta-llama/llama-4-maverick','Llama 4 Maverick'],['qwen/qwen3-235b','Qwen 3 235B'],['mistralai/mistral-large','Mistral Large']],
     'gemini': [['','Gemini 2.5 Pro (default)'],['gemini-2.5-pro','Gemini 2.5 Pro'],['gemini-2.5-flash','Gemini 2.5 Flash']],
     'jcode': [['','DeepSeek v4-pro (default)'],['deepseek-v4-pro','DeepSeek v4-pro']],
     'llm:deepseek': [['','DeepSeek v4-pro'],['deepseek-v4-pro','DeepSeek v4-pro'],['deepseek-chat','DeepSeek Chat']],
-    'llm:openrouter': [['','OpenRouter default'],['deepseek/deepseek-chat','DeepSeek Chat'],['deepseek/deepseek-r1','DeepSeek R1'],['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet'],['openai/gpt-4o','GPT-4o'],['google/gemini-2.5-pro','Gemini 2.5 Pro'],['google/gemini-2.5-flash','Gemini 2.5 Flash'],['meta-llama/llama-4-maverick','Llama 4 Maverick'],['qwen/qwen3-235b','Qwen 3 235B'],['mistralai/mistral-large','Mistral Large']],
+    'llm:openrouter': [['deepseek/deepseek-chat','DeepSeek v4-pro (default)'],['openai/gpt-4o','GPT-4o'],['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet'],['google/gemini-2.5-pro','Gemini 2.5 Pro'],['google/gemini-2.5-flash','Gemini 2.5 Flash'],['meta-llama/llama-4-maverick','Llama 4 Maverick'],['qwen/qwen3-235b','Qwen 3 235B'],['mistralai/mistral-large','Mistral Large']],
     'llm:gemini': [['','Gemini 2.5 Pro'],['gemini-2.5-pro','Gemini 2.5 Pro'],['gemini-2.5-flash','Gemini 2.5 Flash']],
   };
   const opts = models[agent] || [['','Default model']];

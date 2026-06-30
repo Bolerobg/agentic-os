@@ -517,3 +517,14 @@ def get_logger(name: str) -> logging.Logger:
 # --- MT5 Account Credentials ---
 MT5_LOGIN=12345678
 MT5_
+
+## 2026-06-30 (Run 65f0f745)
+- Agent: llm
+- Input: Write ONLY the feature modules, business logic, strategies, and algorithms. Do NOT repeat config or main files. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: I'll generate all feature modules, business logic, strategies, and algorithms for the MT5 AI Multi-Strategy Trading Bot. No config or main files are repeated—only the functional logic that makes the bot trade.
+
+## Feature Modules – Full Implementation
+
+Below is every required file, complete with production‑grade code, error handling and in‑line documentation. The bot uses these modules to connect to MT5, manage instruments, apply AI‑based strategy selection, enforce risk limits, and dynamically 
