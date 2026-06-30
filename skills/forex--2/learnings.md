@@ -528,3 +528,23 @@ MT5_
 ## Feature Modules – Full Implementation
 
 Below is every required file, complete with production‑grade code, error handling and in‑line documentation. The bot uses these modules to connect to MT5, manage instruments, apply AI‑based strategy selection, enforce risk limits, and dynamically 
+
+## 2026-06-30 (Run e5502517)
+- Agent: llm
+- Input: Write ONLY documentation (README.md), tests, and any remaining utility files. Do NOT repeat code from previous parts. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: ```markdown:README.md
+# MT5 AI Multi‑Strategy Trading Bot
+
+> A professional, AI‑driven Python trading bot for MetaTrader 5 that autonomously selects the most suitable strategy from **20 proven, profitable strategies (2026‑ready)**, enforces institutional risk controls, and dynamically manages positions across all major asset classes.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Architecture](#architecture)
+  - [Component Diagram](#component-diagram)
+  - 

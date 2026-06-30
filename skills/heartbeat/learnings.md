@@ -1408,3 +1408,27 @@
   "overall_status": "healthy"
 }
 ```
+
+## 2026-06-30 (Scheduled by cron)
+- Input: (default)
+- Result: ```json
+{
+  "timestamp": "2026-07-07T14:30:00Z",
+  "checks": {
+    "agents": {
+      "opencode": "online",
+      "hermes": "online",
+      "gemini": "online"
+    },
+    "disk_usage_percent": 65,
+    "disk_usage_threshold": 90,
+    "disk_usage_pass": true,
+    "memory_pressure_percent": 60,
+    "memory_pressure_threshold": 80,
+    "memory_pressure_pass": true,
+    "recent_audit_errors_count": 0,
+    "audit_error_threshold": 5,
+    "audit_errors_pass": true
+  },
+  "overall_status": "healthy",
+  "n

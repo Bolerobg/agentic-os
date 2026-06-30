@@ -389,10 +389,26 @@ def stream_gemini_chunks(text: str) -> Generator[str, None, None]:
 
 # ─── Agent Discovery (instant filesystem checks) ────────────────────
 
+def _find_bin(bin_name):
+    """Find binary in PATH and nvm directories."""
+    found = shutil.which(bin_name)
+    if found:
+        return found
+    nvm_versions = Path.home() / ".nvm" / "versions"
+    if nvm_versions.exists():
+        for ver_dir in nvm_versions.iterdir():
+            if ver_dir.is_dir():
+                for sub in ver_dir.iterdir():
+                    candidate = sub / "bin" / bin_name
+                    if candidate.exists():
+                        return str(candidate)
+    return None
+
 def check_agent(name: str) -> dict:
     """Instant filesystem-based check. No subprocess needed."""
     try:
-        # Also check nvm Node.js bin paths (server may not have user's PATH)
+        def find_bin(bin_name):
+            return _find_bin(bin_name)
         extra_paths = []
         nvm_bin = Path.home() / ".nvm" / "versions"
         if nvm_bin.exists():
@@ -1746,13 +1762,38 @@ def clean_hermes_output(raw: str) -> str:
     return '\n'.join(non_meta[-5:]) or raw
 
 def execute_agent(agent: str, message: str) -> str:
+    """Execute agent via CLI tool when available, fallback to API."""
     try:
         if agent == "opencode":
-            # Use DeepSeek API directly for opencode agent
+            # Try real opencode CLI first
+            opencode_path = _find_bin("opencode")
+            if opencode_path:
+                try:
+                    result = subprocess.run(
+                        [opencode_path, "ask", message],
+                        capture_output=True, text=True, timeout=120,
+                        env={**os.environ, "OPENCODE_NO_COLOR": "1"}
+                    )
+                    if result.returncode == 0:
+                        return result.stdout.strip() or result.stderr.strip()
+                except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
+                    pass  # Fall through to API
             return call_llm([{"role": "user", "content": message}], provider="deepseek")
 
         elif agent == "hermes":
-            # Use OpenRouter API directly for Hermes agent
+            # Try real hermes CLI first
+            hermes_path = _find_bin("hermes")
+            if hermes_path:
+                try:
+                    result = subprocess.run(
+                        [hermes_path, "chat", "-q", message],
+                        capture_output=True, text=True, timeout=120,
+                        env={**os.environ, "NO_COLOR": "1"}
+                    )
+                    if result.returncode == 0:
+                        return result.stdout.strip() or result.stderr.strip()
+                except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
+                    pass
             return call_llm([{"role": "user", "content": message}], provider="openrouter")
 
         elif agent == "gemini":
