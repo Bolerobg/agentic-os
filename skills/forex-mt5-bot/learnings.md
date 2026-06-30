@@ -80,3 +80,24 @@ forex-mt5-bot/
 ├── README.md
 ├── core/
 │   ├── __init
+
+## 2026-06-30 (Run 91e51738)
+- Agent: llm
+- Input: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на символна двойка, по дадена стратегия. Всяка стратегия да следи нейната си позиция.
+Да няма повече от 3 отворени сделки на символ.
+Всички променливи да са изнесени в .env 
+Да има дневен drowdown, max drowndown, риск на позиция.
+Да може да търгува на форекс,крипто,акции,метали,стоки, индекси, европейски пазари за стоки и индекси.
+Да се съобразява със работното време на сеисията за текушия символ. В env   да има променлива, колко минути преди края на сесията , да затваря всички позиции за дадената сесия.
+В петък, ( да има пак променлива ) в колко часа да затваря всички позиции.
+Да може да управялява динами§но позициите. Предложи вариант.
+Добави всичко друго което сметнеш , че ще направи този бот професионален търговски инструкент, както търгуват големите хедж, фондове 
+
+- Output: # Institutional-Grade Multi-Strategy AI Trading Bot for MetaTrader 5
+
+A production‑ready Python trading system that combines 20 proven strategies, an AI decision engine, and hedge‑fund risk controls. The bot continuously analyses M15 data, selects the optimal strategy for current market conditions, and manages positions dynamically across forex, crypto, stocks, metals, commodities, indices, and European markets—all with strict session awareness and capital preservation.
+
+## Features at a Glance
+

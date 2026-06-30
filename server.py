@@ -673,7 +673,13 @@ SKILL INSTRUCTIONS:
 PAST LEARNINGS:
 {learnings if learnings else '(none)'}
 
-Execute the task below following the skill instructions exactly. Be thorough and practical."""
+Execute the task below following the skill instructions exactly. Be thorough and practical.
+
+CRITICAL RULES:
+- Write COMPLETE code for EVERY file. NEVER use placeholders like "(code here)".
+- NEVER truncate, NEVER say "I'll continue later", NEVER offer zip files.
+- Write every line of every file fully. Use ```language:filepath format.
+- After you finish, the system auto-saves files. Just confirm what was created."""
 
     user_prompt = skill_input if skill_input else f"Execute the {name} skill with default parameters."
 
