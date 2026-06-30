@@ -304,17 +304,21 @@ if (!document.getElementById("skillProgressStyles")) {
     var pct = window._skillProgressPct || 0;
     var label = window._skillProgressLabel || '';
     var running = window._skillRunning;
+    var icons = {info:'ℹ', success:'✓', error:'✕', ai:'🤖', file:'📁', progress:'⏳'};
+    var colors = {info:'var(--text-secondary)', success:'var(--green)', error:'var(--red)', ai:'var(--accent-light)', file:'var(--yellow)', progress:'var(--accent-light)'};
     var h = '<div class="card" style="padding:10px;margin:4px 0;border-color:var(--border)">';
     if (running && pct >= 0) {
-      h += '<div style="margin-bottom:2px;font-size:9px;color:var(--accent-light);display:flex;align-items:center;gap:4px"><span class="skill-spinner"></span>' + (label || 'Working...') + '</div>';
-      h += '<div style="height:4px;background:var(--bg-dim);border-radius:4px;margin-bottom:6px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width 0.3s;border-radius:4px"></div></div>';
+      h += '<div style="margin-bottom:4px;font-size:10px;color:var(--accent-light);display:flex;align-items:center;gap:6px"><span class="skill-spinner"></span><b>' + (label || 'Working...') + '</b></div>';
+      h += '<div style="height:5px;background:var(--bg-dim);border-radius:3px;margin-bottom:8px"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width 0.5s;border-radius:3px"></div></div>';
     }
-    h += '<div style="font-family:monospace;font-size:10px;line-height:1.6;max-height:250px;overflow-y:auto" id="skillLogArea">';
+    h += '<div style="font-family:monospace;font-size:10px;line-height:1.7;max-height:250px;overflow-y:auto" id="skillLogArea">';
     for (var i = 0; i < logs.length; i++) {
-      var color = tt === 'success' ? 'var(--green)' : tt === 'error' ? 'var(--red)' : tt === 'ai' ? 'var(--accent-light)' : 'var(--text-secondary)';
-      var icon = tt === 'success' ? '✓' : tt === 'error' ? '✕' : tt === 'ai' ? '🤖' : 'ℹ';
-      var spin = running && i === logs.length-1 && tt === 'ai' ? '<span class="skill-spinner"></span>' : '';
-      h += '<div style="color:' + color + '">' + spin + icon + ' <span style="color:var(--text-muted);font-size:9px">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
+      var li = logs[i];
+      var col = colors[li.type] || colors.info;
+      var ico = icons[li.type] || icons.info;
+      var isLast = running && i === logs.length - 1;
+      var spin = isLast ? '<span class="skill-spinner"></span>' : '';
+      h += '<div style="color:' + col + ';margin-bottom:1px">' + spin + ico + ' <span style="color:var(--text-muted);font-size:9px">' + li.time + '</span> ' + li.msg + '</div>';
     }
     h += '</div></div>';
     resultArea.innerHTML = h;

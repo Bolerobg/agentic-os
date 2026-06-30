@@ -200,3 +200,21 @@ Below are all the feature modules, business logic, algorithms, and 20 strategies
 ```
 
 ```python:src/logger.p
+
+## 2026-06-30 (Run ab0e1ea6)
+- Agent: llm
+- Input: Write ONLY documentation (README.md), tests, and any remaining utility files. Do NOT repeat code from previous parts. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: ```markdown:README.md
+# MT5 AI Multi-Strategy Trading Bot
+
+A professional, AI-driven Python trading bot for MetaTrader 5 that autonomously selects the most suitable strategy from 20 proven, profitable strategies, enforces institutional risk controls, and dynamically manages positions across forex, crypto, equities, metals, commodities, indices, and EU contracts.
+
+---
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Installation](#installati
