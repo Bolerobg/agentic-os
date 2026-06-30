@@ -222,9 +222,16 @@ async function sendChatMessage() {
             const data = JSON.parse(payload);
             if (data.type === 'token' && data.text && contentEl) {
               contentEl.textContent += data.text;
-              // Auto scroll
+              // Force browser paint by reading layout property
+              contentEl.scrollHeight;
               const msgs = document.getElementById('chatMessages');
               msgs.scrollTop = msgs.scrollHeight;
+              // Yield to browser renderer every 3 tokens
+              if (!sendChatMessage._tokens) sendChatMessage._tokens = 0;
+              sendChatMessage._tokens++;
+              if (sendChatMessage._tokens % 3 === 0) {
+                await new Promise(r => setTimeout(r, 0));
+              }
             }
           } catch {}
         }
