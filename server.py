@@ -1341,6 +1341,18 @@ Generate this skill by running it with appropriate input.
     append_audit({"action": "skill_generated", "name": name, "description": description})
     return {"status": "created", "name": name, "skill": skill_md}
 
+@app.delete("/api/skills/{name}")
+def delete_skill(name: str):
+    """Delete an entire skill directory."""
+    if ".." in name or "/" in name:
+        raise HTTPException(400, "Invalid skill name")
+    skill_dir = BASE_DIR / "skills" / name
+    if not skill_dir.exists():
+        raise HTTPException(404, "Skill not found")
+    shutil.rmtree(skill_dir)
+    append_audit({"action": "skill_deleted", "name": name})
+    return {"status": "deleted", "name": name}
+
 # ─── Routes: Error Tracking (v0.3.0) ───────────────────────────────
 
 ERROR_LOG_FILE = BASE_DIR / "data" / "error-log.json"

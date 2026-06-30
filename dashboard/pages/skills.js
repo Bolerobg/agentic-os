@@ -7,6 +7,7 @@ async function renderSkills() {
         <p class="page-subtitle">Browse, run, and monitor skill performance</p>
       </div>
       <div class="btn-group">
+        <button class="btn btn-primary" onclick="showNewSkill()">+ New Skill</button>
         <input id="skillFilter" class="form-input" style="width:200px" placeholder="Filter skills..." oninput="filterSkills()">
       </div>
     </div>
@@ -68,7 +69,8 @@ function switchSkillView(view) {
         <td><strong>${sName.replace(/-/g, ' ')}</strong></td>
         <td>${avg !== null ? `<span class="badge badge-success">${(avg * 100).toFixed(0)}%</span>` : '<span class="badge badge-info">—</span>'}</td>
         <td>${s.has_learnings ? '<span class="badge badge-accent">✓</span>' : '<span class="badge">—</span>'}</td>
-        <td><button class="btn btn-sm btn-primary" onclick="event.stopPropagation();quickRunSkill('${encodeURIComponent(s.name)}')">▶</button></td>
+        <td><button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSkillConfirm('${encodeURIComponent(s.name)}')" title="Delete">🗑</button>
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();quickRunSkill('${encodeURIComponent(s.name)}')">▶</button></td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
   } else {
@@ -201,4 +203,47 @@ async function executeSkillRun(encodedName) {
     }
     if (runBtn) { runBtn.textContent = '▶ Run'; runBtn.disabled = false; }
   }
+}
+
+async function showNewSkill() {
+  showModal('New Skill', `
+    <div class="form-group">
+      <label class="form-label">Skill Name (lowercase, hyphens)</label>
+      <input id="newSkillName" class="form-input" placeholder="my-new-skill" oninput="this.value=this.value.replace(/\\s+/g,\'−\').replace(/[^a-z0-9-]/gi,\'−\').toLowerCase()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea id="newSkillDesc" class="form-textarea" rows="3" placeholder="What does this skill do?\n\nBe specific — this helps the AI understand when to use it."></textarea>
+    </div>
+    <div class="form-hint">Creates SKILL.md, learnings.md, eval.json, score-history.json automatically.</div>
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="createNewSkill()">Create Skill</button>
+  `);
+}
+
+async function createNewSkill() {
+  const name = document.getElementById('newSkillName').value.trim();
+  const desc = document.getElementById('newSkillDesc').value.trim();
+  if (!name) { showToast('Name required', 'warning'); return; }
+  try {
+    await api.generateSkill(name, desc);
+    closeModal();
+    showToast(`Skill "${name}" created`, 'success');
+    renderSkills();
+  } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
+}
+
+function deleteSkillConfirm(encodedName) {
+  const name = decodeURIComponent(encodedName);
+  if (!confirm(`Delete skill "${name}"? This removes the entire skill folder and cannot be undone.`)) return;
+  deleteSkill(name);
+}
+
+async function deleteSkill(name) {
+  try {
+    await api.deleteSkill(name);
+    showToast(`"${name}" deleted`, 'success');
+    renderSkills();
+  } catch (err) { showToast(`Error: ${err.message}`, 'error'); }
 }
