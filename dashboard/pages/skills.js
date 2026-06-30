@@ -299,26 +299,27 @@ if (!document.getElementById("skillProgressStyles")) {
   var logs = [];
   function addLog(msg, type) {
     var t = new Date().toLocaleTimeString();
-    logs.push({time: t, msg: msg, type: type || 'info'});
-    var colors = {info: 'var(--text-secondary)', success: 'var(--green)', error: 'var(--red)', ai: 'var(--accent-light)', file: 'var(--yellow)'};
-    var icons = {info: 'ℹ', success: '✓', error: '✕', ai: '🤖', file: '📁', progress: '⏳'};
+    var tt = type || 'info';
+    logs.push({time: t, msg: msg, type: tt});
+    var pct = window._skillProgressPct || 0;
+    var label = window._skillProgressLabel || '';
     var running = window._skillRunning;
-    var h = '<div class="card" style="padding:10px;margin-bottom:4px;border-color:var(--border)">';
-    // Progress bar
-    if (running && window._skillProgressPct >= 0) {
-      h += '<div class="skill-progress-bar"><div class="skill-progress-fill" style="width:' + window._skillProgressPct + '%"></div></div>';
-      h += '<div style="font-size:9px;color:var(--text-muted);text-align:center;margin-bottom:4px">' + (window._skillProgressLabel || 'Working...') + '</div>';
+    var h = '<div class="card" style="padding:10px;margin:4px 0;border-color:var(--border)">';
+    if (running && pct >= 0) {
+      h += '<div style="margin-bottom:2px;font-size:9px;color:var(--accent-light);display:flex;align-items:center;gap:4px"><span class="skill-spinner"></span>' + (label || 'Working...') + '</div>';
+      h += '<div style="height:4px;background:var(--bg-dim);border-radius:4px;margin-bottom:6px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width 0.3s;border-radius:4px"></div></div>';
     }
-    h += '<div style="font-family:var(--font-mono);font-size:10px;line-height:1.5;max-height:280px;overflow-y:auto" id="skillLogArea">';
+    h += '<div style="font-family:monospace;font-size:10px;line-height:1.6;max-height:250px;overflow-y:auto" id="skillLogArea">';
     for (var i = 0; i < logs.length; i++) {
-      var isActive = running && i === logs.length - 1 && (logs[i].type === 'ai' || logs[i].type === 'progress');
-      var spinner = isActive ? '<span class="skill-spinner"></span>' : '';
-      h += '<div class="skill-log-line" style="color:' + (colors[logs[i].type] || colors.info) + ';margin-bottom:1px">' + spinner + icons[logs[i].type] + ' <span style="color:var(--text-muted)">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
+      var color = tt === 'success' ? 'var(--green)' : tt === 'error' ? 'var(--red)' : tt === 'ai' ? 'var(--accent-light)' : 'var(--text-secondary)';
+      var icon = tt === 'success' ? '✓' : tt === 'error' ? '✕' : tt === 'ai' ? '🤖' : 'ℹ';
+      var spin = running && i === logs.length-1 && tt === 'ai' ? '<span class="skill-spinner"></span>' : '';
+      h += '<div style="color:' + color + '">' + spin + icon + ' <span style="color:var(--text-muted);font-size:9px">' + logs[i].time + '</span> ' + logs[i].msg + '</div>';
     }
     h += '</div></div>';
     resultArea.innerHTML = h;
-    var logArea = document.getElementById('skillLogArea');
-    if (logArea) logArea.scrollTop = logArea.scrollHeight;
+    var la = document.getElementById('skillLogArea');
+    if (la) la.scrollTop = la.scrollHeight;
   }
 
   addLog('Starting skill execution...', 'info');

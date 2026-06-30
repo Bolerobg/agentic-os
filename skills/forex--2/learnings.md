@@ -141,3 +141,62 @@ MT5_SERVER=ICMarkets-Demo
 
 # --- Risk Management ---
 RISK_PER_TRADE=0
+
+## 2026-06-30 (Run 9a9eb017)
+- Agent: llm
+- Input: Write ONLY the config files, main entry point, and core infrastructure modules. Include: config.py, main.py, .env.example, requirements.txt. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: ```bash:.env.example
+# MT5 AI Multi-Strategy Trading Bot – Configuration
+# Copy this file to .env and fill in your real values.
+
+# --- MT5 Account ---
+MT5_LOGIN=12345678
+MT5_PASSWORD=your_password_here
+MT5_SERVER=ICMarkets-Demo
+
+# --- Risk Management ---
+# Per-trade risk as a fraction of account equity (e.g. 0.01 = 1%)
+RISK_PER_TRADE=0.01
+# Daily drawdown limit – if equity falls more than this % from session high, stop trading
+MAX_DAILY_DRAWDOWN=0.03
+# Total drawdown limit – absolute floor, if b
+
+## 2026-06-30 (Run 871cccaf)
+- Agent: llm
+- Input: Write ONLY the feature modules, business logic, strategies, and algorithms. Do NOT repeat config or main files. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: The following feature modules, business logic, strategies, and algorithms are delivered. They complete the MT5 AI Multi‑Strategy Trading Bot. No config or main files are repeated. Every file is fully implemented and written in production‑grade Python.
+
+```python:src/logger.py
+#!/usr/bin/env python3
+"""
+Centralized logging configuration for the bot.
+"""
+
+import logging
+import sys
+from pathlib import Path
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
+
+LOG_DIR = Pat
+
+## 2026-06-30 (Run b279ded9)
+- Agent: llm
+- Input: Write ONLY the feature modules, business logic, strategies, and algorithms. Do NOT repeat config or main files. Task: Направи ми Python bot  за търговия за Mt5, по последните 20 печеливши стратегии за 2026  година.
+Бота да работи на  M15,   да преценява коя от стратегиите е най подходяща в текушите пазарни условия като изпозлва AI.
+Да отваря само по една позиция на 
+- Output: ## Feature Modules – Full Implementation
+
+Below are all the feature modules, business logic, algorithms, and 20 strategies for the MT5 AI Multi‑Strategy Trading Bot. Each file is written in full with production‑grade code, error handling, and inline documentation. The code assumes that `config.py` and `main.py` (the infrastructure) already exist and provides the necessary imports.
+
+---
+
+```python:src/__init__.py
+"""MT5 AI Multi-Strategy Trading Bot – Source Package"""
+```
+
+```python:src/logger.p
