@@ -289,7 +289,7 @@ def call_gemini(messages: list, model: str = "gemini-2.5-pro", max_tokens: int =
     except Exception as e:
         return f"⚠ Gemini API error: {str(e)}"
 
-def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 128000) -> str:
+def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 384000) -> str:
     settings = _load_settings()
     llm_config = settings.get("llm", {})
     if not provider or provider == "default":
@@ -681,7 +681,7 @@ Execute the task below following the skill instructions exactly. Be thorough and
     ]
 
     try:
-        response_text = call_llm(messages, max_tokens=128000)
+        response_text = call_llm(messages, max_tokens=384000)
         agent_used = "llm"
     except Exception as e:
         response_text = f"⚠ LLM execution failed: {str(e)}"
@@ -2909,7 +2909,7 @@ DEFAULT_AGENT_CONFIGS = {
         "provider": "deepseek",
         "rate_limit": 0,
         "capabilities": ["code_generation", "devops", "file_operations", "git", "terraform", "docker", "testing", "scripting"],
-        "context_window": 128000,
+        "context_window": 384000,
         "api_key_status": "ok",
         "description": "Code & DevOps — infrastructure, git, file ops, deployment",
     },
@@ -2922,7 +2922,7 @@ DEFAULT_AGENT_CONFIGS = {
         "provider": "openrouter",
         "rate_limit": 0,
         "capabilities": ["memory", "scheduling", "messaging", "skills", "plugins", "backup", "channel_management"],
-        "context_window": 128000,
+        "context_window": 384000,
         "api_key_status": "ok",
         "description": "Memory & Scheduling — context, cron jobs, messaging, skill orchestration",
     },
@@ -2948,7 +2948,7 @@ DEFAULT_AGENT_CONFIGS = {
         "provider": "deepseek",
         "rate_limit": 0,
         "capabilities": ["javascript", "nodejs", "typescript", "frontend", "react", "vue", "npm", "web_development"],
-        "context_window": 128000,
+        "context_window": 384000,
         "api_key_status": "ok",
         "description": "JavaScript & Node.js — JS, TS, frontend, web development",
     },
