@@ -333,7 +333,6 @@ if (!document.getElementById("skillProgressStyles")) {
     let r;
     if (multiStep) {
       addLog('Multi-step mode enabled', 'ai');
-      addLog('AI planning task split...', 'ai');
       
       // Use default 3-step split (always works, no API call needed)
       const steps = [
