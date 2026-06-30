@@ -3525,6 +3525,11 @@ class ReportSchedule(BaseModel):
 def get_report_configs():
     return _load_json(REPORTS_FILE, {"schedules": [], "history": []})
 
+@app.get("/api/reports/schedules")
+def list_report_schedules():
+    data = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
+    return data.get("schedules", [])
+
 @app.post("/api/reports/schedule")
 def schedule_report(data: ReportSchedule):
     reports = _load_json(REPORTS_FILE, {"schedules": [], "history": []})
