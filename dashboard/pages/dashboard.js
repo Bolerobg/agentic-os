@@ -1,9 +1,12 @@
 // Dashboard — Professional Command Center
 let dashInterval = null;
+let dashWidgets = { stats: true, agents: true, activity: true, cost_chart: true, alerts: true, system_health: true, quick_actions: true };
 
 async function renderDashboard() {
-  // Stop any previous auto-refresh
   if (dashInterval) clearInterval(dashInterval);
+
+  // Load widget config
+  try { const cfg = await api.getDashboardConfig(); dashWidgets = cfg.widgets || dashWidgets; } catch {}
 
   const content = document.getElementById('pageContent');
   content.innerHTML = `
@@ -16,6 +19,7 @@ async function renderDashboard() {
         <button class="btn btn-primary" onclick="navigate('agent-orchestration')">🎯 Orchestration</button>
         <button class="btn" onclick="navigate('task-queue')">📋 Task Queue</button>
         <button class="btn" onclick="navigate('agent-comparison')">🧪 A/B Test</button>
+        <button class="btn" onclick="toggleDashWidgets()">⚙ Customize</button>
         <button class="btn" onclick="renderDashboard()">🔄 Refresh</button>
       </div>
     </div>
@@ -292,6 +296,35 @@ async function renderDashboard() {
     if (dot) { dot.textContent = 'updating...'; dot.style.color = 'var(--yellow)'; }
     renderDashboard();
   }, 30000);
+}
+
+function toggleDashWidgets() {
+  const icons = { stats: '📊', agents: '🤖', activity: '📡', cost_chart: '💰', alerts: '🔔', system_health: '🖥', quick_actions: '⚡' };
+  const names = { stats: 'Stats Cards', agents: 'Agent Cards', activity: 'Live Activity', cost_chart: 'Cost Chart', alerts: 'Alerts', system_health: 'System Health', quick_actions: 'Quick Actions' };
+  const toggles = Object.keys(dashWidgets).map(k =>
+    `<label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>${icons[k]} ${names[k]}</span>
+      <label class="switch"><input type="checkbox" id="dw_${k}" ${dashWidgets[k] ? 'checked' : ''}><span class="switch-slider"></span></label>
+    </label>`
+  ).join('');
+
+  showModal('Customize Dashboard', `
+    <div style="margin-bottom:12px;font-size:12px;color:var(--text-muted)">Toggle which widgets appear on the Command Center</div>
+    ${toggles}
+  `, `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-primary" onclick="saveDashWidgets()">💾 Save Layout</button>
+  `);
+}
+
+async function saveDashWidgets() {
+  Object.keys(dashWidgets).forEach(k => { dashWidgets[k] = document.getElementById('dw_'+k)?.checked ?? true; });
+  try {
+    await api.updateDashboardConfig({ widgets: dashWidgets });
+    closeModal();
+    showToast('Layout saved', 'success');
+    renderDashboard();
+  } catch (err) { showToast(err.message, 'error'); }
 }
 
 async function runQuickSkill() {

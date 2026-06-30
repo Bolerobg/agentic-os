@@ -1115,6 +1115,100 @@ def github_project_info(path: str = Query("")):
         "last_commit": last_commit.stdout.strip(),
     }
 
+# ─── 5 New Pro Features — v2.1 ──────────────────────────────────
+
+# 1. Context Injection — auto-inject memory into agent chats
+@app.get("/api/brain/context")
+def get_brain_context(max_tokens: int = 4000):
+    brain_dir = BASE_DIR / "brain"
+    if not brain_dir.exists():
+        return {"context": "", "files": []}
+    parts, files_list, total = [], [], 0
+    max_chars = max_tokens * 4
+    for f in sorted(brain_dir.glob("*.md")):
+        if total >= max_chars: break
+        c = read_file(f)
+        if c.strip():
+            parts.append(f"## {f.stem.replace('-',' ').title()}\n{c[:max_chars-total]}")
+            files_list.append(f.name)
+            total += min(len(c), max_chars - total)
+    return {"context": "\n\n".join(parts), "files": files_list, "total_chars": total}
+
+# 2. Task Templates
+TASK_TEMPLATES = {
+    "code-review": {"title":"Code Review","description":"Review code for bugs, security issues, improvements","agent":"gemini","priority":"medium","category":"code"},
+    "deploy": {"title":"Deploy to Production","description":"Build and deploy to production server","agent":"opencode","priority":"high","category":"devops"},
+    "backup": {"title":"Daily Backup","description":"Create backup of all databases and configs","agent":"hermes","priority":"medium","category":"maintenance"},
+    "research": {"title":"Research Topic","description":"Research and summarize with sources","agent":"gemini","priority":"low","category":"research"},
+    "fix-bug": {"title":"Fix Bug","description":"Investigate, find root cause, implement fix","agent":"opencode","priority":"high","category":"code"},
+    "report": {"title":"Activity Report","description":"Generate daily summary of activities and costs","agent":"hermes","priority":"medium","category":"reporting"},
+    "docs": {"title":"Write Documentation","description":"Write clear documentation for feature/module","agent":"gemini","priority":"low","category":"docs"},
+    "optimize": {"title":"Optimize Performance","description":"Profile, identify bottlenecks, improve","agent":"opencode","priority":"medium","category":"optimization"},
+}
+
+@app.get("/api/tasks/templates")
+def get_task_templates():
+    return {"templates": TASK_TEMPLATES}
+
+@app.post("/api/tasks/batch")
+def batch_task_action(data: dict):
+    ids, action = data.get("ids",[]), data.get("action","")
+    if not ids or not action: raise HTTPException(400, "ids and action required")
+    results = []
+    for tid in ids:
+        t = _active_tasks.get(tid)
+        if not t: results.append({"id":tid,"status":"not_found"}); continue
+        if action == "cancel": t["status"]="cancelled"; t["completed"]=get_timestamp()
+        elif action == "delete": _active_tasks.pop(tid,None); tasks=_load_json(TASKS_FILE,[]); tasks=[x for x in tasks if x["id"]!=tid]; _save_json(TASKS_FILE,tasks)
+        elif action == "retry": t["status"]="pending"; t["progress"]=0; t["error"]=None
+        results.append({"id":tid,"status":t.get("status","deleted")})
+    return {"results":results,"action":action}
+
+# 3. Cost Optimization
+@app.get("/api/analytics/efficiency")
+def get_cost_efficiency():
+    metrics = _load_json(METRICS_FILE, {"agents":{},"history":[]})
+    eff = {}
+    for name in ["opencode","hermes","gemini","jcode"]:
+        runs = metrics.get("agents",{}).get(name,{}).get("runs",[])
+        if not runs: eff[name]={"tokens_per_task":0,"cost_per_task":0}; continue
+        total_t = sum(r.get("tokens_used",0) for r in runs)
+        total_c = sum(r.get("cost",0) for r in runs)
+        succ = [r for r in runs if r.get("success",True)]
+        eff[name]={"total_tasks":len(runs),"tokens_per_task":round(total_t/len(runs)),"cost_per_task":round(total_c/len(runs),6),"success_rate":round(len(succ)/len(runs)*100,1),"total_tokens":total_t,"total_cost":round(total_c,6)}
+    cost_d = _load_json(BASE_DIR/"data"/"cost-history.json",{"entries":[]})
+    models = {}
+    for e in cost_d.get("entries",[]):
+        m = e.get("model","unknown"); models.setdefault(m,{"tokens":0,"cost":0,"calls":0})
+        models[m]["tokens"]+=e.get("tokens",0); models[m]["cost"]+=e.get("cost",0); models[m]["calls"]+=1
+    for m in models: models[m]["cost_per_1k"]=round(models[m]["cost"]/max(models[m]["tokens"],1)*1000,6)
+    return {"agents":eff,"models":models}
+
+# 4. Skill Improvement Suggestions
+@app.post("/api/skills/suggest-improvement/{name}")
+def suggest_skill_improvement(name: str):
+    if ".." in name or "/" in name: raise HTTPException(400,"Invalid")
+    path = BASE_DIR/"skills"/name
+    if not path.exists(): raise HTTPException(404,"Not found")
+    sm = read_file(path/"SKILL.md")
+    scores = json.loads((path/"score-history.json").read_text()) if (path/"score-history.json").exists() else []
+    prompt = f"Analyze skill '{name}':\n{sm[:2000]}\n\nRuns: {len(scores)}. Suggest 3 specific improvements as numbered list."
+    try: resp = call_llm([{"role":"user","content":prompt}]); return {"skill":name,"suggestions":resp}
+    except Exception as e: return {"skill":name,"suggestions":f"Error: {e}"}
+
+# 5. Dashboard Widget Config
+DASHBOARD_CFG = BASE_DIR/"data"/"dashboard-config.json"
+
+@app.get("/api/dashboard/config")
+def get_dashboard_config():
+    return _load_json(DASHBOARD_CFG,{"widgets":{"stats":True,"agents":True,"activity":True,"cost_chart":True,"alerts":True,"system_health":True,"quick_actions":True},"refresh_interval":30})
+
+@app.put("/api/dashboard/config")
+def update_dashboard_config(data: dict):
+    _save_json(DASHBOARD_CFG,data)
+    return {"status":"saved"}
+
+
 # ─── Main ─────────────────────────────────────────────────────────
 @app.post("/api/webhook")
 def webhook_receiver(data: dict):

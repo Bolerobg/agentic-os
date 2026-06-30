@@ -10,6 +10,7 @@ async function renderTaskQueue() {
       <div class="btn-group">
         <button class="btn btn-primary" onclick="showAddTask()">+ New Task</button>
         <button class="btn" onclick="showAutoRouteTask()" title="AI picks the best agent automatically">🤖 Auto-Route</button>
+        <button class="btn" onclick="showTaskTemplates()">📋 Templates</button>
         <button class="btn" onclick="renderTaskQueue()">🔄 Refresh</button>
       </div>
     </div>
@@ -120,6 +121,44 @@ async function showAddTask() {
     <button class="btn btn-primary" onclick="createNewTask()">Create Task</button>
   `);
 }
+
+async function showTaskTemplates() {
+  try {
+    const data = await api.getTaskTemplates();
+    const templates = data.templates || {};
+    const entries = Object.entries(templates);
+    const catIcons = {code:"💻",devops:"🚀",maintenance:"🔧",research:"🧠",reporting:"📊",docs:"📝",optimization:"⚡"};
+    showModal('Task Templates', `
+      <div class="grid grid-2" style="gap:8px">
+        ${entries.map(([key,t]) => `
+          <div class="card" style="cursor:pointer;padding:12px" onclick="useTemplate('${key}')">
+            <div class="flex items-center gap-2 mb-1">
+              <span>${catIcons[t.category]||"📋"}</span>
+              <strong style="font-size:12px">${escapeHtml(t.title)}</strong>
+            </div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${escapeHtml(t.description)}</div>
+            <div class="flex gap-1">
+              <span class="badge badge-accent" style="font-size:8px">${t.agent}</span>
+              <span class="badge badge-info" style="font-size:8px">${t.priority}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `, `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>`);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+window.useTemplate = async function(key) {
+  const data = await api.getTaskTemplates();
+  const t = data.templates[key];
+  if (!t) return;
+  closeModal();
+  try {
+    await api.createTask({title:t.title,description:t.description,agent:t.agent,priority:t.priority});
+    showToast(`Task "${t.title}" created for ${t.agent}`,'success');
+    renderTaskQueue();
+  } catch(err) { showToast(err.message,'error'); }
+};
 
 async function showAutoRouteTask() {
   showModal('🤖 Auto-Route Task', `

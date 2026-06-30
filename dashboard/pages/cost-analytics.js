@@ -107,4 +107,37 @@ async function renderCostAnalytics() {
   } catch (err) {
     document.getElementById('costSummary').innerHTML = `<div class="card" style="grid-column:1/-1"><div class="empty-state"><div class="empty-state-icon">⚠</div><div class="empty-state-title">${escapeHtml(err.message)}</div></div></div>`;
   }
+
+  // Load efficiency data
+  try {
+    const eff = await api.getCostEfficiency();
+    const agents = eff.agents || {};
+    document.getElementById('costSummary').insertAdjacentHTML('beforeend', `
+      <div class="section-title" style="grid-column:1/-1;margin-top:12px">⚡ Token Efficiency</div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="table-wrapper"><table><thead><tr><th>Agent</th><th>Tasks</th><th>Tokens/Task</th><th>Cost/Task</th><th>Success</th><th>Efficiency</th></tr></thead><tbody>
+          ${Object.entries(agents).map(([name,a]) => {
+            const eff_score = a.cost_per_task > 0 ? (a.success_rate / 100) / (a.cost_per_task * 1000) : 0;
+            const best = Math.max(...Object.values(agents).map(x => x.cost_per_task > 0 ? (x.success_rate/100)/(x.cost_per_task*1000) : 0));
+            return `<tr>
+              <td><strong style="text-transform:capitalize">${name}</strong></td>
+              <td>${a.total_tasks || 0}</td>
+              <td>${(a.tokens_per_task || 0).toLocaleString()}</td>
+              <td>$${(a.cost_per_task || 0).toFixed(6)}</td>
+              <td><span class="badge ${(a.success_rate||100)>=95?'badge-success':'badge-warning'}">${a.success_rate||100}%</span></td>
+              <td>${eff_score === best && eff_score > 0 ? '🏆 Best' : ''}</td>
+            </tr>`;
+          }).join('')}
+        </tbody></table></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-header"><span class="card-title">💡 Optimization Tips</span></div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">
+          • Most efficient agent: <strong>${eff.summary?.most_efficient || 'N/A'}</strong><br>
+          • Total tasks tracked: <strong>${eff.summary?.total_tasks || 0}</strong><br>
+          • Models with cost data: <strong>${Object.keys(eff.models||{}).length}</strong>
+        </div>
+      </div>
+    `);
+  } catch {}
 }
