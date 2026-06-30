@@ -153,17 +153,27 @@ async function quickRunSkill(encodedName) {
   const displayName = escapeHtml(name.replace(/-/g, ' '));
   showModal(`Run: ${displayName}`, `
     <div class="form-group">
-      <label class="form-label">Input (optional)</label>
-      <textarea id="qrsInput" class="form-textarea" rows="3" placeholder="Enter input for ${displayName}..."></textarea>
+      <label class="form-label">Task / Input</label>
+      <textarea id="qrsInput" class="form-textarea" rows="4" placeholder="Describe what you want this skill to do..."></textarea>
     </div>
-    <div class="form-group">
-      <label class="form-label">Agent</label>
-      <select id="qrsAgent" class="form-select">
-        <option value="auto">Auto-detect</option>
-        <option value="opencode">opencode</option>
-        <option value="hermes">Hermes</option>
-        <option value="gemini">Gemini CLI</option>
-      </select>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Agent</label>
+        <select id="qrsAgent" class="form-select">
+          <option value="auto">Auto-detect</option>
+          <option value="opencode">opencode</option>
+          <option value="hermes">Hermes</option>
+          <option value="gemini">Gemini CLI</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Output Folder (where to save files)</label>
+        <div style="display:flex;gap:6px">
+          <input id="qrsOutputPath" class="form-input" placeholder="skills/${escapeHtml(name)}/output" style="font-size:11px">
+          <button class="btn btn-sm" onclick="browseSkillOutput()" title="Browse folders">📂</button>
+        </div>
+        <div class="form-hint">Auto-saves generated code files to this folder</div>
+      </div>
     </div>
     <div id="skillResult" style="display:none"></div>
   `, `
@@ -172,10 +182,36 @@ async function quickRunSkill(encodedName) {
   `);
 }
 
+// Browse folder for skill output (reuses chat's browseProject)
+window.browseSkillOutput = function(currentPath) {
+  var sp = currentPath || (document.getElementById("qrsOutputPath") ? document.getElementById("qrsOutputPath").value.trim() : "") || "/Users/bolero/Documents";
+  fetch("/api/projects?path=" + encodeURIComponent(sp)).then(function(r) { return r.json(); }).then(function(data) {
+    var items = data.items || [];
+    var dirs = items.filter(function(f) { return f.type === "dir"; });
+    var h = "";
+    dirs.forEach(function(d) {
+      var nextPath = sp.replace(/\/+$/, "") + "/" + d.name;
+      h += '<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px" onmouseover="this.style.background=\'var(--bg-card-hover)\'" onmouseout="this.style.background=\'\'" onclick="closeModal();browseSkillOutput(\'' + nextPath.replace(/'/g, "\\'") + '\')">📁 ' + d.name + '</div>';
+    });
+    var footer = '<button class="btn btn-primary" onclick="closeModal();var e=document.getElementById(\'qrsOutputPath\');if(e)e.value=\'' + sp.replace(/'/g, "\\'") + '\'">✅ Select</button>';
+    if (sp !== "/" && sp !== "") {
+      var parent = sp.split("/").slice(0, -1).join("/") || "/";
+      footer += '<button class="btn btn-sm" onclick="closeModal();browseSkillOutput(\'' + parent.replace(/'/g, "\\'") + '\')">⬆ Parent</button>';
+    }
+    footer += '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>';
+    showModal("📂 Select Output Folder",
+      '<div style="font-family:monospace;font-size:11px;color:var(--accent-light);margin-bottom:12px">📁 ' + sp + '</div>' +
+      (dirs.length > 0 ? '<div style="max-height:250px;overflow-y:auto">' + h + '</div>' : '<div style="font-size:12px;color:var(--text-muted)">No subfolders</div>'),
+      footer
+    );
+  });
+};
+
 async function executeSkillRun(encodedName) {
   const name = decodeURIComponent(encodedName);
   const input = document.getElementById('qrsInput').value;
   const agent = document.getElementById('qrsAgent').value;
+  const outputPath = document.getElementById('qrsOutputPath')?.value?.trim() || '';
   const runBtn = document.querySelector('#modalContainer .btn-primary');
   const resultArea = document.getElementById('skillResult');
 
@@ -186,7 +222,7 @@ async function executeSkillRun(encodedName) {
   }
 
   try {
-    const r = await api.runSkill(name, input, agent);
+    const r = await api.runSkill(name, input, agent, outputPath);
     if (resultArea) {
       const outputText = r.output || '(no output)';
       resultArea.innerHTML = `

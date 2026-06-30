@@ -32,7 +32,7 @@ const api = {
   updateBrainFile: (name, content) => api.put(`/api/brain/${encodeURIComponent(name)}`, { content }),
   getSkills: () => api.get('/api/skills'),
   getSkill: (name) => api.get(`/api/skills/${encodeURIComponent(name)}`),
-  runSkill: (name, input = '', agent = 'auto') => api.post(`/api/skills/${encodeURIComponent(name)}/run`, { input, agent }),
+  runSkill: (name, input = '', agent = 'auto', outputPath = '') => api.post(`/api/skills/${encodeURIComponent(name)}/run`, { input, agent, output_path: outputPath }),
   getSkillEval: (name) => api.get(`/api/skills/${encodeURIComponent(name)}/eval`),
   deleteSkill: (name) => api.del(`/api/skills/${encodeURIComponent(name)}`),
   generateSkill: (name, description) => api.post('/api/skills/generate', { name, description }),
