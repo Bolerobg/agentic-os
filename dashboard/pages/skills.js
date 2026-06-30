@@ -195,10 +195,17 @@ window.browseSkillOutput = function(currentPath) {
   var modalBody = document.querySelector("#modalContainer .modal-body");
   if (!modalBody) return;
   
-  // Save original content
+  // Save original content AND input values
   if (!window._skillRunOriginalBody) {
     window._skillRunOriginalBody = modalBody.innerHTML;
     window._skillRunOriginalFooter = document.querySelector("#modalContainer .modal-footer") ? document.querySelector("#modalContainer .modal-footer").innerHTML : "";
+    // Save all input values before they get lost
+    window._savedInputValues = {};
+    var inputs = modalBody.querySelectorAll("input, textarea, select");
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      if (el.id) window._savedInputValues[el.id] = el.value;
+    }
   }
   
   fetch("/api/projects?path=" + encodeURIComponent(sp)).then(function(r) { return r.json(); }).then(function(data) {
@@ -229,14 +236,10 @@ window.browseSkillOutput = function(currentPath) {
 };
 
 window.selectBrowseOutput = function(path) {
-  // Save path first (input is gone after body restore)
-  window._selectedOutputPath = path;
+  // Save the selected path to be restored
+  if (!window._savedInputValues) window._savedInputValues = {};
+  window._savedInputValues["qrsOutputPath"] = path;
   cancelBrowseOutput();
-  // After body restore, set the value
-  setTimeout(function() {
-    var el = document.getElementById("qrsOutputPath");
-    if (el) { el.value = window._selectedOutputPath || ""; window._selectedOutputPath = null; }
-  }, 50);
 };
 
 window.cancelBrowseOutput = function() {
@@ -246,8 +249,16 @@ window.cancelBrowseOutput = function() {
   if (modalBody && window._skillRunOriginalBody) {
     modalBody.innerHTML = window._skillRunOriginalBody;
     window._skillRunOriginalBody = null;
+    // Restore saved input values
+    if (window._savedInputValues) {
+      Object.keys(window._savedInputValues).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = window._savedInputValues[id];
+      });
+      window._savedInputValues = null;
+    }
   }
-  if (titleEl) titleEl.textContent = titleEl.textContent.replace("📂 Select Output Folder", "Run:");
+  if (titleEl) titleEl.textContent = titleEl.textContent.replace("📂 Select Output Folder", "");
   if (footerEl && window._skillRunOriginalFooter) {
     footerEl.innerHTML = window._skillRunOriginalFooter;
     window._skillRunOriginalFooter = null;

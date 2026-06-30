@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple Calculator with basic arithmetic operations.
+Simple Calculator with add, subtract, multiply, divide functions.
 """
 
 def add(a, b):
@@ -18,5 +18,5 @@ def multiply(a, b):
 def divide(a, b):
     """Return the quotient of a divided by b. Raises ValueError if b is zero."""
     if b == 0:
-        raise ValueError("Cannot divide by zero")
+        raise ValueError("Division by zero is not allowed.")
     return a / b

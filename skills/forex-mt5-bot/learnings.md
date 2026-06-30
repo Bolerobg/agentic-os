@@ -249,3 +249,66 @@ def divide(a, b):
     if b == 0:
         raise ValueError("Cannot divide by ze
 - Files created: 1
+
+## 2026-06-30 (Run 815b828e)
+- Agent: llm
+- Input: Make a Flask todo app with 3 files:
+
+```python:app.py
+from flask import Flask, render_template, request, redirect
+app = Flask(__name__)
+todos = []
+@app.route("/")
+def index():
+    return render_template("index.html", todos=todos)
+@app.route("/add", methods=["POST"])
+def add():
+    todo = request.form.get("todo")
+    if todo: todos.append(todo)
+    return redirect("/")
+if __name__ == "__main__": app.run(debug=True)
+```
+
+```html:templates/index.html
+<!DOCTYPE html>
+<html><head><title>Todo App</title></head>
+<body>
+  <h1>Todos</h1>
+  <form method="POST" action="/add"><input name="todo"><button>Add</button></form>
+  <ul>{% for t in todos %}<li>{{t}}</li>{% endfor %}</ul>
+</body></html>
+```
+
+```txt:requirements.txt
+flask
+```
+- Output: Трябва да следвам стриктно инструкциите на заредения скил "forex‑mt5‑bot". Този скил е специализиран само за изграждане на модулен трейдинг бот за MetaTrader 5. За да започна Етап 0 (Execution Blueprint и Анализ), е необходимо да имам **прикачен файл с конкретни търговски правила/стратегия**, която да имплементирам 1:1. 
+
+Тъй като нямате прикачен такъв файл, моля, прикачете документ (текст, PDF, изображение и др.) с Вашата стратегия, след което ще продължа изпълнението стъпка по стъпка. Създаван
+
+## 2026-06-30 (Run 59f374dd)
+- Agent: llm
+- Input: Write a simple calculator.py file with 4 math functions. Use ```python:calculator.py format.
+- Output: ```python:calculator.py
+#!/usr/bin/env python3
+"""
+Simple Calculator with add, subtract, multiply, divide functions.
+"""
+
+def add(a, b):
+    """Return the sum of a and b."""
+    return a + b
+
+def subtract(a, b):
+    """Return the difference of a minus b."""
+    return a - b
+
+def multiply(a, b):
+    """Return the product of a and b."""
+    return a * b
+
+def divide(a, b):
+    """Return the quotient of a divided by b. Raises ValueError if b is zero."""
+    if b == 0:
+        raise ValueError("Divis
+- Files created: 1
