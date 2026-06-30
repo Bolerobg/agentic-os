@@ -377,17 +377,17 @@ if (!document.getElementById("skillProgressStyles")) {
     window._skillRunning = false;
     window._skillProgressPct = 100; window._skillProgressLabel = 'Complete';
     addLog('Done! ✨', 'success');
-    if (resultArea) {
-      // Append completion card after log, don't overwrite
-      const outputText = r.output || '(no output)';
-      resultArea.innerHTML += `
-        <div class="card" style="margin-top:8px">
-          <div class="card-header" style="border-color:var(--green-dim)">
-            <span class="card-title" style="color:var(--green)">✓ Completed — ${r.agent} #${r.run_id}</span>
-          </div>
-          <pre style="max-height:400px;overflow:auto;font-size:12px;white-space:pre-wrap;margin:0;padding:12px;background:var(--bg-code, #1a1a2e);border-radius:0 0 8px 8px">${escapeHtml(outputText)}</pre>
-        </div>`;
-    }
+    setTimeout(function() {
+      if (resultArea) {
+        const outputText = r.output || '(no output)';
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.style.marginTop = '8px';
+        card.innerHTML = '<div class="card-header" style="border-color:var(--green-dim)"><span class="card-title" style="color:var(--green)">✓ Completed — ' + (r.agent || '') + ' #' + (r.run_id || '') + '</span></div><pre style="max-height:400px;overflow:auto;font-size:12px;white-space:pre-wrap;margin:0;padding:12px;background:var(--bg-code,#1a1a2e);border-radius:0 0 8px 8px">' + escapeHtml(outputText) + '</pre>';
+        resultArea.appendChild(card);
+        card.scrollIntoView({behavior:'smooth'});
+      }
+    }, 100);
     if (runBtn) { runBtn.textContent = '✓ Done'; runBtn.disabled = false; }
   } catch (err) {
     if (resultArea) {

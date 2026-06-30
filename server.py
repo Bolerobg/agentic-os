@@ -752,7 +752,10 @@ CRITICAL RULES:
                         fpath = output_dir / filepath
                         fpath.parent.mkdir(parents=True, exist_ok=True)
                         fpath.write_text(code)
-                        files_created.append(str(fpath.relative_to(BASE_DIR)))
+                        try:
+                            files_created.append(str(fpath.relative_to(BASE_DIR)))
+                        except ValueError:
+                            files_created.append(str(fpath))
             except Exception:
                 pass
 

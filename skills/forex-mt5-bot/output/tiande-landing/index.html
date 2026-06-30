@@ -1,0 +1,847 @@
+
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TianDe - Възстановяващ балсам с екстракт от женшен</title>
+    <style>
+        :root {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #181818;
+            --bg-card-hover: #222222;
+            --gold: #c9a96e;
+            --gold-light: #d4b87a;
+            --gold-dark: #b8944f;
+            --gold-pale: #e0cfa0;
+            --text-primary: #f0ece6;
+            --text-secondary: #c5c0b8;
+            --text-muted: #9a958e;
+            --border-subtle: #2a2824;
+            --border-gold: #3d3528;
+            --shadow-gold: rgba(201, 169, 110, 0.08);
+            --shadow-gold-strong: rgba(201, 169, 110, 0.18);
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+            --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-heading: 'Georgia', 'Times New Roman', serif;
+            --font-body: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-image:
+                radial-gradient(ellipse at 50% 0%, rgba(201, 169, 110, 0.04) 0%, transparent 70%),
+                radial-gradient(ellipse at 85% 20%, rgba(201, 169, 110, 0.03) 0%, transparent 55%),
+                radial-gradient(ellipse at 15% 60%, rgba(201, 169, 110, 0.02) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* ── Container ────────────────────── */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ── Top accent bar ──────────────── */
+        .top-accent {
+            height: 3px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--gold-dark) 20%,
+                    var(--gold) 50%,
+                    var(--gold-light) 70%,
+                    var(--gold-pale) 85%,
+                    transparent 100%);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        /* ── Header / Nav ────────────────── */
+        .header {
+            padding: 20px 0;
+            position: sticky;
+            top: 3px;
+            z-index: 999;
+            background: rgba(13, 13, 13, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+            transition: var(--transition);
+        }
+        .header-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--gold);
+            font-family: var(--font-heading);
+            font-size: 1.55rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            transition: var(--transition);
+        }
+        .logo:hover {
+            color: var(--gold-light);
+            text-shadow: 0 0 24px var(--shadow-gold-strong);
+        }
+        .logo-dot {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 10px var(--shadow-gold-strong);
+            animation: logoPulse 2.2s ease-in-out infinite;
+        }
+        @keyframes logoPulse {
+            0%,
+            100% {
+                box-shadow: 0 0 8px var(--shadow-gold-strong);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(201, 169, 110, 0.45);
+                transform: scale(1.35);
+            }
+        }
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            list-style: none;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            letter-spacing: 0.4px;
+            transition: var(--transition);
+            position: relative;
+            padding: 4px 0;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1.5px;
+            background: var(--gold);
+            transition: width var(--transition);
+        }
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* ── Hero Section ────────────────── */
+        .hero {
+            padding: 60px 0 50px;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -120px;
+            right: -180px;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(201, 169, 110, 0.07) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-image-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .hero-image-wrap::before {
+            content: '';
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(201, 169, 110, 0.1) 0%, transparent 65%);
+            z-index: 0;
+            animation: heroGlow 3.5s ease-in-out infinite;
+        }
+        @keyframes heroGlow {
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.12);
+                opacity: 1;
+            }
+        }
+        .hero-image {
+            position: relative;
+            z-index: 2;
+            max-width: 100%;
+            height: auto;
+            max-height: 420px;
+            filter: drop-shadow(0 20px 50px rgba(0, 0, 0, 0.55));
+            transition: transform var(--transition);
+            animation: floatImage 5s ease-in-out infinite;
+        }
+        @keyframes floatImage {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-14px);
+            }
+        }
+        .hero-image:hover {
+            transform: scale(1.04);
+            filter: drop-shadow(0 24px 60px rgba(201, 169, 110, 0.2));
+        }
+        .hero-content {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .hero-badge {
+            display: inline-block;
+            background: rgba(201, 169, 110, 0.12);
+            border: 1px solid var(--border-gold);
+            color: var(--gold-light);
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            width: fit-content;
+            font-weight: 500;
+        }
+        .hero-title {
+            font-family: var(--font-heading);
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 700;
+            line-height: 1.25;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+        .hero-title .gold-highlight {
+            color: var(--gold);
+            position: relative;
+        }
+        .hero-subtitle {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            max-width: 480px;
+        }
+        .hero-features-mini {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-top: 6px;
+            list-style: none;
+        }
+        .hero-features-mini li {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .hero-features-mini li .check-icon {
+            color: var(--gold);
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* ── Section titles ──────────────── */
+        .section-label {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 2.5px;
+            color: var(--gold);
+            font-weight: 500;
+        }
+        .section-heading {
+            text-align: center;
+            font-family: var(--font-heading);
+            font-size: clamp(1.5rem, 2.8vw, 2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 40px;
+            letter-spacing: -0.2px;
+        }
+
+        /* ── Benefits Grid ──────────────── */
+        .benefits {
+            padding: 50px 0 60px;
+            position: relative;
+        }
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        .benefit-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 28px 22px 24px;
+            text-align: center;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+            cursor: default;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+        .benefit-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: var(--gold);
+            transition: width var(--transition);
+            border-radius: 0 0 2px 2px;
+        }
+        .benefit-card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border-gold);
+            transform: translateY(-6px);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(201, 169, 110, 0.08);
+        }
+        .benefit-card:hover::before {
+            width: 50%;
+        }
+        .benefit-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(201, 169, 110, 0.08);
+            transition: all var(--transition);
+            flex-shrink: 0;
+        }
+        .benefit-card:hover .benefit-icon {
+            background: rgba(201, 169, 110, 0.16);
+            box-shadow: 0 0 28px var(--shadow-gold);
+        }
+        .benefit-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: var(--gold);
+            fill: none;
+            stroke-width: 1.6;
+            transition: var(--transition);
+        }
+        .benefit-card:hover .benefit-icon svg {
+            stroke: var(--gold-light);
+            filter: drop-shadow(0 0 6px rgba(201, 169, 110, 0.4));
+        }
+        .benefit-card h3 {
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.2px;
+            line-height: 1.3;
+        }
+        .benefit-card p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        /* ── Price CTA Section ───────────── */
+        .price-cta {
+            padding: 50px 0 60px;
+            position: relative;
+        }
+        .price-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-gold);
+            border-radius: var(--radius-xl);
+            padding: 40px 36px;
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 0 60px rgba(201, 169, 110, 0.06), 0 8px 32px rgba(0, 0, 0, 0.35);
+            transition: all var(--transition);
+        }
+        .price-card:hover {
+            box-shadow: 0 0 80px rgba(201, 169, 110, 0.1), 0 12px 40px rgba(0, 0, 0, 0.5);
+            border-color: var(--gold-dark);
+        }
+        .price-card::after {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: var(--radius-xl);
+            padding: 1px;
+            background: linear-gradient(135deg,
+                    transparent 30%,
+                    rgba(201, 169, 110, 0.25) 50%,
+                    transparent 70%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        .price-tag {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--gold);
+            letter-spacing: -1px;
+            line-height: 1;
+            margin: 10px 0 4px;
+            transition: var(--transition);
+        }
+        .price-card:hover .price-tag {
+            color: var(--gold-light);
+            text-shadow: 0 0 30px var(--shadow-gold-strong);
+        }
+        .price-weight {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        .price-description {
+            color: var(--text-secondary);
+            margin: 12px 0 22px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+            color: #0d0d0d;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 0.6px;
+            padding: 14px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: all var(--transition);
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-body);
+            box-shadow: 0 6px 24px rgba(201, 169, 110, 0.2);
+            position: relative;
+            overflow: hidden;
+            z-index: 1;
+        }
+        .cta-button:hover {
+            background: linear-gradient(135deg, var(--gold), var(--gold-light));
+            box-shadow: 0 10px 34px rgba(201, 169, 110, 0.35);
+            transform: translateY(-3px);
+            color: #000;
+        }
+        .cta-button:active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(201, 169, 110, 0.25);
+        }
+        .cta-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+            z-index: -1;
+        }
+        .cta-button:active::after {
+            width: 300px;
+            height: 300px;
+        }
+        .guarantee-text {
+            margin-top: 14px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            letter-spacing: 0.3px;
+        }
+
+        /* ── Footer ──────────────────────── */
+        .footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 32px 0;
+            text-align: center;
+            background: var(--bg-secondary);
+        }
+        .footer-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .footer-links a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            transition: var(--transition);
+            letter-spacing: 0.3px;
+        }
+        .footer-links a:hover {
+            color: var(--gold);
+        }
+        .footer-copy {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            letter-spacing: 0.4px;
+        }
+        .footer-copy .gold-accent {
+            color: var(--gold);
+        }
+
+        /* ── Decorative divider ─────────── */
+        .divider {
+            width: 80px;
+            height: 2px;
+            background: var(--gold);
+            margin: 0 auto 36px;
+            border-radius: 2px;
+            opacity: 0.5;
+        }
+
+        /* ── Responsive ─────────────────── */
+        @media (max-width: 1024px) {
+            .benefits-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+            .hero-grid {
+                gap: 28px;
+            }
+        }
+        @media (max-width: 768px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+                text-align: center;
+                gap: 20px;
+            }
+            .hero-content {
+                align-items: center;
+                order: 1;
+            }
+            .hero-image-wrap {
+                order: 0;
+            }
+            .hero-image {
+                max-height: 280px;
+            }
+            .hero-subtitle {
+                max-width: 100%;
+            }
+            .hero-features-mini {
+                justify-content: center;
+            }
+            .hero-badge {
+                margin: 0 auto;
+            }
+            .benefits-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+            .benefit-card {
+                padding: 20px 14px 18px;
+                gap: 10px;
+            }
+            .benefit-icon {
+                width: 48px;
+                height: 48px;
+            }
+            .benefit-icon svg {
+                width: 22px;
+                height: 22px;
+            }
+            .benefit-card h3 {
+                font-size: 0.9rem;
+            }
+            .benefit-card p {
+                font-size: 0.78rem;
+            }
+            .price-card {
+                padding: 28px 20px;
+            }
+            .price-tag {
+                font-size: 2.4rem;
+            }
+            .nav-links {
+                gap: 14px;
+            }
+            .header-inner {
+                justify-content: center;
+            }
+        }
+        @media (max-width: 480px) {
+            .benefits-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .hero {
+                padding: 30px 0 30px;
+            }
+            .hero-image {
+                max-height: 220px;
+            }
+            .hero-title {
+                font-size: 1.5rem;
+            }
+            .price-tag {
+                font-size: 2rem;
+            }
+            .cta-button {
+                padding: 12px 30px;
+                font-size: 0.9rem;
+            }
+            .container {
+                padding: 0 14px;
+            }
+            .footer-links {
+                gap: 14px;
+            }
+            .nav-links {
+                gap: 10px;
+            }
+            .nav-links a {
+                font-size: 0.78rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top accent bar -->
+    <div class="top-accent"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container header-inner">
+            <a href="#" class="logo" aria-label="TianDe начало">
+                <span class="logo-dot"></span> TianDe
+            </a>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#hero">Начало</a></li>
+                    <li><a href="#benefits">Ползи</a></li>
+                    <li><a href="#price">Поръчай</a></li>
+                    <li><a href="#footer">Контакти</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="container">
+            <div class="hero-grid">
+                <!-- Image -->
+                <div class="hero-image-wrap">
+                    <img
+                    class="hero-image"
+                    src="https://mytiande.bg/wp-content/uploads/2018/02/20115E.png"
+                    alt="TianDe Възстановяващ балсам с екстракт от женшен 500 гр"
+                    loading="eager"
+                    >
+                </div>
+                <!-- Content -->
+                <div class="hero-content">
+                    <span class="hero-badge">&#10031; Natural Hair Care</span>
+                    <h1 class="hero-title">
+                        Възстановяващ балсам с
+                        <span class="gold-highlight">екстракт от женшен</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        Професионална грижа за вашата коса &mdash; 500 гр чиста сила на природата,
+                        събрана в луксозна формула за видими резултати още от първото нанасяне.
+                    </p>
+                    <ul class="hero-features-mini">
+                        <li><span class="check-icon">&#10003;</span> 500 гр</li>
+                        <li><span class="check-icon">&#10003;</span> Екстракт от женшен</li>
+                        <li><span class="check-icon">&#10003;</span> Без парабени</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="benefits" id="benefits">
+        <div class="container">
+            <p class="section-label">Ключови ползи</p>
+            <h2 class="section-heading">Защо вашата коса го заслужава</h2>
+            <div class="benefits-grid">
+
+                <!-- Card 1: Подобрява структурата на косъма -->
+                <div class="benefit-card">
+                    <div class="benefit-icon">
+                        <!-- Hair strand / structure icon -->
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C12 2 8 4 8 9C8 12 10 15 12 22C14 15 16 12 16 9C16 4 12 2 12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M12 9V15" stroke-linecap="round"/>
+                            <circle cx="12" cy="6" r="1.5" fill="currentColor" stroke="none" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <h3>Подобрява структурата на косъма</h3>
+                    <p>Възстановява увредените зони, изглажда кутикулата и придава копринен блясък.</p>
+                </div>
+
+                <!-- Card 2: Подсилва растежа -->
+                <div class="benefit-card">
+                    <div class="benefit-icon">
+                        <!-- Growth / upward arrow with leaf -->
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 20V10" stroke-linecap="round"/>
+                            <path d="M8 14L12 10L16 14" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6 6C8 5 10 6 12 8C14 6 16 5 18 6" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="12" cy="4" r="1.2" fill="currentColor" stroke="none" opacity="0.6"/>
+                        </svg>
+                    </div>
+                    <h3>Подсилва растежа</h3>
+                    <p>Активира фоликулите, стимулира кръвообращението и подхранва корена за по-бърз растеж.</p>
+                </div>
+
+                <!-- Card 3: Спира косопада -->
+                <div class="benefit-card">
+                    <div class="benefit-icon">
+                        <!-- Shield / protection icon -->
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L4 7V13C4 17 7.5 20.5 12 22C16.5 20.5 20 17 20 13V7L12 2Z" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M9 12L11 14L15 10" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3>Спира косопада</h3>
+                    <p>Укрепва космения фоликул, намалява чупливостта и значително редуцира падането на коса.</p>
+                </div>
+
+                <!-- Card 4: Предотвратява пърхота -->
+                <div class="benefit-card">
+                    <div class="benefit-icon">
+                        <!-- Sparkle / clean scalp icon -->
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M8 12L11 15L16 9" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="12" cy="8" r="0.8" fill="currentColor" stroke="none" opacity="0.5"/>
+                            <circle cx="8" cy="11" r="0.6" fill="currentColor" stroke="none" opacity="0.4"/>
+                            <circle cx="16" cy="10" r="0.7" fill="currentColor" stroke="none" opacity="0.45"/>
+                        </svg>
+                    </div>
+                    <h3>Предотвратява появата на пърхот</h3>
+                    <p>Балансира скалпа, хидратира в дълбочина и създава здравословна среда без пърхот.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Price CTA Section -->
+    <section class="price-cta" id="price">
+        <div class="container">
+            <p class="section-label">Специална цена</p>
+            <div class="price-card">
+                <p style="color:var(--text-muted);font-size:0.9rem;letter-spacing:0.5px;">Възстановяващ балсам с екстракт от женшен</p>
+                <div class="price-tag">48.90 <span style="font-size:1.4rem;">лв</span></div>
+                <span class="price-weight">500 гр</span>
+                <p class="price-description">
+                    Поръчай сега и подхрани косата си с доказаната сила на женшена.
+                    Безплатна доставка при поръчка над 60 лв.
+                </p>
+                <a href="#" class="cta-button" aria-label="Поръчай сега TianDe балсам">
+                    Поръчай сега &rarr;
+                </a>
+                <p class="guarantee-text">&#128274; Сигурно плащане &bull; 14-дневно право на връщане</p>
+            </div>
+            <div class="divider" style="margin-top:40px;"></div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+        <div class="container footer-inner">
+            <ul class="footer-links">
+                <li><a href="#hero">Начало</a></li>
+                <li><a href="#benefits">Ползи</a></li>
+                <li><a href="#price">Поръчай</a></li>
+                <li><a href="#">Политика за поверителност</a></li>
+                <li><a href="#">Общи условия</a></li>
+            </ul>
+            <p class="footer-copy">
+                &copy; 2025 <span class="gold-accent">TianDe</span> &mdash; Всички права запазени.
+                Продукт на натурална козметика.
+            </p>
+        </div>
+    </footer>
+
+</body>
+</html>
