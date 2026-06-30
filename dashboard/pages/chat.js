@@ -188,51 +188,53 @@ async function sendChatMessage() {
 
   addChatMessage('user', message, agent);
   const streamMsg = addChatMessage('assistant', '', agent, true);
+  const contentEl = streamMsg?.element?.querySelector('.chat-message-content');
 
   try {
     const model = window._chatModel || '';
-    const body = JSON.stringify({ agent, message, project, model });
-    const resp = await fetch('/api/chat/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const resp = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent, message, project, model })
+    });
+
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
-
-    let fullText = '';
-    const contentEl = streamMsg ? streamMsg.element.querySelector('.chat-message-content') : null;
+    let leftover = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const chunk = decoder.decode(value, { stream: true });
+      leftover += chunk;
 
-      for (const line of lines) {
+      // Process complete SSE lines
+      while (leftover.includes('\n')) {
+        const nl = leftover.indexOf('\n');
+        const line = leftover.slice(0, nl).trim();
+        leftover = leftover.slice(nl + 1);
+
         if (line.startsWith('data: ')) {
+          const payload = line.slice(6);
+          if (payload === '[DONE]') continue;
           try {
-            const data = JSON.parse(line.slice(6));
-            if (data.type === 'token' && contentEl) {
-              fullText += data.text;
-              contentEl.textContent = fullText;
-              document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+            const data = JSON.parse(payload);
+            if (data.type === 'token' && data.text && contentEl) {
+              contentEl.textContent += data.text;
+              // Auto scroll
+              const msgs = document.getElementById('chatMessages');
+              msgs.scrollTop = msgs.scrollHeight;
             }
           } catch {}
         }
       }
     }
-    // Escape HTML once at the end for safe display
-    if (contentEl && fullText) {
-      contentEl.innerHTML = escapeHtml(fullText);
-    }
   } catch (err) {
-    if (streamMsg) {
-      const el = streamMsg.element.querySelector('.chat-message-content');
-      if (el) el.textContent = '⚠ Error: ' + err.message;
-    }
+    if (contentEl) contentEl.textContent = '⚠ ' + err.message;
   }
 
-  if (streamMsg) streamMsg.element.querySelector('.chat-message-content').classList.remove('streaming');
+  if (contentEl) contentEl.classList.remove('streaming');
 }
 
 function addChatMessage(role, content, agent, streaming = false) {
