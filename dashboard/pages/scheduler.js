@@ -9,6 +9,36 @@ async function renderScheduler() {
       <button class="btn btn-primary" onclick="showAddJob()">+ Add Job</button>
     </div>
     <div id="jobList"><div class="loading"><div class="loading-spinner"></div></div></div>
+
+    <div class="card mt-3" id="cronHelp">
+      <div class="card-header" style="cursor:pointer" onclick="document.getElementById('cronHelpBody').style.display = document.getElementById('cronHelpBody').style.display === 'none' ? 'block' : 'none'">
+        <span class="card-title">⏱ Cron Format Help</span>
+        <span style="font-size:10px;color:var(--text-muted)">click to expand</span>
+      </div>
+      <div id="cronHelpBody" style="display:none">
+        <div style="font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--text-secondary)">
+          <pre style="color:var(--accent-light);margin-bottom:8px">┌─ minute (0-59)
+│ ┌─ hour (0-23)
+│ │ ┌─ day (1-31)
+│ │ │ ┌─ month (1-12)
+│ │ │ │ ┌─ weekday (0=Sun..6=Sat)
+│ │ │ │ │
+* * * * *</pre>
+          <table style="width:100%;font-size:10px">
+            <tr style="color:var(--accent-light)"><th style="text-align:left;padding:4px">Expression</th><th style="text-align:left;padding:4px">Meaning</th></tr>
+            <tr><td style="padding:3px"><code>0 0 * * *</code></td><td style="padding:3px">Every day at midnight</td></tr>
+            <tr><td style="padding:3px"><code>0 9 * * *</code></td><td style="padding:3px">Every day at 9:00 AM</td></tr>
+            <tr><td style="padding:3px"><code>0 9 * * 1-5</code></td><td style="padding:3px">Mon-Fri at 9:00 AM</td></tr>
+            <tr><td style="padding:3px"><code>*/30 * * * *</code></td><td style="padding:3px">Every 30 minutes</td></tr>
+            <tr><td style="padding:3px"><code>*/15 * * * *</code></td><td style="padding:3px">Every 15 minutes</td></tr>
+            <tr><td style="padding:3px"><code>0 */2 * * *</code></td><td style="padding:3px">Every 2 hours</td></tr>
+            <tr><td style="padding:3px"><code>0 2 * * 0</code></td><td style="padding:3px">Sunday at 2:00 AM</td></tr>
+            <tr><td style="padding:3px"><code>0 0 1 * *</code></td><td style="padding:3px">1st of every month</td></tr>
+            <tr><td style="padding:3px"><code>0 0 * * 0</code></td><td style="padding:3px">Every Sunday midnight</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
   `;
 
   try {
