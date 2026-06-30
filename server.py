@@ -85,6 +85,7 @@ class SkillRunRequest(BaseModel):
     input: Optional[str] = ""
     agent: Optional[str] = "auto"
     output_path: Optional[str] = ""  # where to save generated files
+    multi_step: bool = False  # split into subtasks and execute sequentially
 
 class ScheduleJobRequest(BaseModel):
     name: str
@@ -534,6 +535,7 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
     agent_choice = req.agent if req else "auto"
     skill_input = req.input if req else ""
     output_path_override = req.output_path if req and req.output_path else ""
+    is_multi_step = req.multi_step if req else False
 
     # ── Landing Builder: special handler using LLM API ──
     if name == "landing-builder" and skill_input:
@@ -689,7 +691,55 @@ CRITICAL RULES:
     ]
 
     try:
-        response_text = call_llm(messages, max_tokens=384000)
+        if is_multi_step and skill_input:
+            # Step 1: Ask AI to split the task into subtasks
+            split_prompt = f"""You are planning a multi-step execution of the '{name}' skill.
+
+FULL TASK:
+{skill_input}
+
+Split this into 3-4 logical steps. Each step should produce COMPLETE, self-contained output.
+Return ONLY a JSON array: [{{"step": 1, "title": "...", "task": "..."}}, ...]
+
+Example: [{{"step": 1, "title": "Config & Core", "task": "Write config.py, main.py, and core/ modules"}}, ...]
+
+JSON:"""
+
+            plan_text = call_llm([{"role": "user", "content": split_prompt}], max_tokens=2000)
+            # Parse JSON from response
+            import re as re_mod
+            json_match = re_mod.search(r'\[.*\]', plan_text, re_mod.DOTALL)
+            steps = []
+            if json_match:
+                try:
+                    steps = json.loads(json_match.group())
+                except:
+                    steps = [{"step": 1, "title": "Full Task", "task": skill_input}]
+            if not steps:
+                steps = [{"step": 1, "title": "Full Task", "task": skill_input}]
+
+            # Step 2: Execute each subtask
+            all_responses = []
+            for step in steps:
+                step_prompt = f"""PART {step['step']}/{len(steps)}: {step['title']}
+
+Task: {step['task']}
+
+CRITICAL: Write COMPLETE code. No placeholders. No truncation. Write every line.
+Use ```language:path/to/file.py format for each file.
+
+Output ONLY the code for this part, nothing else."""
+
+                step_messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": step_prompt},
+                ]
+                step_result = call_llm(step_messages, max_tokens=128000)
+                all_responses.append(f"## Step {step['step']}: {step['title']}\n\n{step_result}")
+
+            response_text = "\n\n---\n\n".join(all_responses)
+        else:
+            response_text = call_llm(messages, max_tokens=384000)
         agent_used = "llm"
     except Exception as e:
         response_text = f"⚠ LLM execution failed: {str(e)}"

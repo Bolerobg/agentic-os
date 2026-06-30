@@ -174,6 +174,9 @@ async function quickRunSkill(encodedName) {
           <button class="btn btn-sm" onclick="browseSkillOutput()" title="Browse folders">📂</button>
         </div>
         <div class="form-hint">Auto-saves generated code files to this folder</div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px">
+        <input type="checkbox" id="qrsMultiStep"> 🔄 Multi-step — auto-split into 3-4 parts (for large projects)
+      </label>
       </div>
     </div>
     <div id="skillResult" style="display:none"></div>
@@ -259,6 +262,7 @@ async function executeSkillRun(encodedName) {
   const input = document.getElementById('qrsInput').value;
   const agent = document.getElementById('qrsAgent').value;
   const outputPath = document.getElementById('qrsOutputPath')?.value?.trim() || '';
+  const multiStep = document.getElementById('qrsMultiStep')?.checked || false;
   const runBtn = document.querySelector('#modalContainer .btn-primary');
   const resultArea = document.getElementById('skillResult');
 
@@ -269,7 +273,7 @@ async function executeSkillRun(encodedName) {
   }
 
   try {
-    const r = await api.runSkill(name, input, agent, outputPath);
+    const r = await api.runSkill(name, input, agent, outputPath, multiStep);
     if (resultArea) {
       const outputText = r.output || '(no output)';
       resultArea.innerHTML = `
