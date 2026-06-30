@@ -1,32 +1,14 @@
----
-name: heartbeat
-description: Lightweight system health monitoring skill
-version: 1.0.0
-author: Agentic OS
-tags: [monitoring, health, system]
----
+# Heartbeat
 
-# Heartbeat — System Health Monitor
+System health monitoring and heartbeat checks.
 
-## Description
-Checks system health at regular intervals: agent status, disk usage, memory pressure, and recent audit errors. Flags anomalies and triggers alerts if thresholds are breached.
+## Usage
+Run heartbeat to check all agents, system resources, and report status.
 
-## When to Use
-- Every 5 minutes as a scheduled cron job
-- On-demand to check system health
-- Before and after running other skills
-
-## Process
-1. Check all 3 agents (opencode, hermes, gemini) are online
-2. Check disk usage (< 90%)
-3. Check memory pressure (< 80%)
-4. Scan recent audit log for errors
-5. Update brain/recent-decisions.md if issues found
-6. Return health summary
+## Input
+- Optional: specific checks to run
 
 ## Output
-JSON health report with pass/fail per check
+- Health report with agent status and system metrics
 
-## Agent Assignment
-- Primary: opencode
-- Fallback: hermes
+## Primary: hermes

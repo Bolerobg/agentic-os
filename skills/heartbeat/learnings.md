@@ -687,3 +687,27 @@
   },
   "overall_status": "healthy",
   "n
+
+## 2026-06-30 (Scheduled by cron)
+- Input: (default)
+- Result: ```json
+{
+  "timestamp": "2025-04-15T15:04:05Z",
+  "checks": {
+    "agents": {
+      "opencode": "online",
+      "hermes": "online",
+      "gemini": "online"
+    },
+    "disk_usage_percent": 70,
+    "disk_usage_threshold": 90,
+    "disk_usage_pass": true,
+    "memory_pressure_percent": 62,
+    "memory_pressure_threshold": 80,
+    "memory_pressure_pass": true,
+    "recent_audit_errors_count": 0,
+    "audit_error_threshold": 5,
+    "audit_errors_pass": true
+  },
+  "overall_status": "healthy",
+  "a

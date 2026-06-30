@@ -100,7 +100,13 @@ async function renderChat() {
               <option value="">Default model</option>
             </select>
           </div>
-          <textarea id="chatInput" class="chat-input" rows="1" placeholder="Type a message..." onkeydown="handleChatKey(event)"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span style="font-size:10px;color:var(--text-muted);white-space:nowrap">Skill:</span>
+            <select id="chatSkillSelect" class="form-select" style="flex:1;font-size:11px;height:28px;padding:2px 8px" onchange="window._chatSkill=this.value">
+              <option value="">💬 Normal chat</option>
+            </select>
+          </div>
+          <textarea id="chatInput" class="chat-input" rows="1" placeholder="Type a message... or select a skill above to execute" onkeydown="handleChatKey(event)"></textarea>
           <button class="btn btn-primary btn-icon" onclick="sendChatMessage()" id="chatSendBtn" title="Send">➤</button>
         </div>
       </div>
@@ -112,6 +118,18 @@ async function renderChat() {
   document.getElementById('chatInput').focus();
   // Prevent hash navigation while on chat
   if (window._dashInterval) { clearInterval(window._dashInterval); window._dashInterval = null; }
+
+  // Populate skill selector
+  try {
+    const skills = await api.getSkills();
+    const sel = document.getElementById('chatSkillSelect');
+    skills.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.name;
+      opt.textContent = s.name.replace(/-/g, ' ');
+      sel.appendChild(opt);
+    });
+  } catch {}
 
   // Update agent status indicators
   try {
@@ -187,6 +205,30 @@ async function sendChatMessage() {
 
   const agent = window._currentAgent || 'opencode';
   const project = document.getElementById('projectPath')?.value?.trim() || '';
+  const skill = document.getElementById('chatSkillSelect')?.value || '';
+
+  // If skill selected, route to skill execution
+  if (skill) {
+    input.value = '';
+    input.style.height = 'auto';
+    addChatMessage('user', '🛠 ' + skill + ': ' + message, agent);
+    const resultMsg = addChatMessage('assistant', '', 'skill:' + skill, true);
+    const resultEl = resultMsg?.element?.querySelector('.chat-message-content');
+    try {
+      const r = await api.runSkill(skill, message, 'auto', project);
+      const out = r.output || '(no output)';
+      if (resultEl) {
+        resultEl.textContent = out.slice(0, 2000);
+        if (r.files_created) resultEl.textContent += '\n\n📁 Files saved to ' + (r.output_dir || 'output/');
+      }
+    } catch (err) {
+      if (resultEl) resultEl.textContent = '⚠ ' + err.message;
+    }
+    if (resultEl) resultEl.classList.remove('streaming');
+    return;
+  }
+
+  
   input.value = '';
   input.style.height = 'auto';
 
