@@ -620,8 +620,8 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
     skill_md = read_file(path / "SKILL.md")
     learnings = read_file(path / "learnings.md")
 
-    # ── Special handlers for skills with specific logic ──
-    if name == "backup-skill":
+    # ── Special handlers for skills with specific logic (only when no custom input) ──
+    if name == "backup-skill" and not skill_input:
         backup_dir = BASE_DIR / "backups"
         backup_dir.mkdir(exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -636,7 +636,7 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
                 "output": f"✅ Бекъп създаден: {backup_file.name} ({backup_file.stat().st_size} bytes)",
                 "message": f"Backup created: {backup_file.name}"}
 
-    if name == "heartbeat":
+    if name == "heartbeat" and not skill_input:
         agents = [check_agent(a) for a in ["opencode", "hermes", "gemini", "jcode"]]
         online = [a["name"] for a in agents if a["status"] == "online"]
         append_audit({"action": "skill_run", "skill": name, "agent": "system"})
@@ -644,14 +644,14 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
                 "output": f"💓 Heartbeat OK\n🟢 Online agents: {', '.join(online) if online else 'none'}\n🔴 Offline: {len(agents)-len(online)}\n🕐 {get_timestamp()[:19]}",
                 "message": "Heartbeat check complete"}
 
-    if name == "devops-audit":
+    if name == "devops-audit" and not skill_input:
         import platform, os as os_mod
         info = f"System: {platform.system()} {platform.release()}\nPython: {platform.python_version()}\nCWD: {os.getcwd()}\nDisk: {shutil.disk_usage('/').free // (1024**3)}GB free"
         append_audit({"action": "skill_run", "skill": name, "agent": "system"})
         return {"status": "completed", "skill": name, "agent": "system",
                 "output": f"🔍 DevOps Audit\n{info}", "message": "Audit complete"}
 
-    if name == "cost-analytics":
+    if name == "cost-analytics" and not skill_input:
         cf = BASE_DIR / "data" / "cost-history.json"
         entries = json.loads(cf.read_text())["entries"] if cf.exists() else []
         total = sum(e.get("cost", 0) for e in entries)
