@@ -185,26 +185,67 @@ async function quickRunSkill(encodedName) {
 // Browse folder for skill output (reuses chat's browseProject)
 window.browseSkillOutput = function(currentPath) {
   var sp = currentPath || (document.getElementById("qrsOutputPath") ? document.getElementById("qrsOutputPath").value.trim() : "") || "/Users/bolero/Documents";
+  var inputEl = document.getElementById("qrsOutputPath");
+  
+  // Use inner modal: show folder picker inside the existing modal body
+  var modalBody = document.querySelector("#modalContainer .modal-body");
+  if (!modalBody) return;
+  
+  // Save original content
+  if (!window._skillRunOriginalBody) {
+    window._skillRunOriginalBody = modalBody.innerHTML;
+    window._skillRunOriginalFooter = document.querySelector("#modalContainer .modal-footer") ? document.querySelector("#modalContainer .modal-footer").innerHTML : "";
+  }
+  
   fetch("/api/projects?path=" + encodeURIComponent(sp)).then(function(r) { return r.json(); }).then(function(data) {
     var items = data.items || [];
     var dirs = items.filter(function(f) { return f.type === "dir"; });
     var h = "";
     dirs.forEach(function(d) {
-      var nextPath = sp.replace(/\/+$/, "") + "/" + d.name;
-      h += '<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px" onmouseover="this.style.background=\'var(--bg-card-hover)\'" onmouseout="this.style.background=\'\'" onclick="closeModal();browseSkillOutput(\'' + nextPath.replace(/'/g, "\\'") + '\')">📁 ' + d.name + '</div>';
+      var np = (sp.replace(/\/+$/, "") + "/" + d.name).replace(/'/g, "\'");
+      h += '<div style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px" onmouseover="this.style.background=\'var(--bg-card-hover)\'" onmouseout="this.style.background=\'\'" onclick="browseSkillOutput(\'' + np + '\')">📁 ' + d.name + '</div>';
     });
-    var footer = '<button class="btn btn-primary" onclick="closeModal();var e=document.getElementById(\'qrsOutputPath\');if(e)e.value=\'' + sp.replace(/'/g, "\\'") + '\'">✅ Select</button>';
-    if (sp !== "/" && sp !== "") {
-      var parent = sp.split("/").slice(0, -1).join("/") || "/";
-      footer += '<button class="btn btn-sm" onclick="closeModal();browseSkillOutput(\'' + parent.replace(/'/g, "\\'") + '\')">⬆ Parent</button>';
-    }
-    footer += '<button class="btn btn-ghost" onclick="closeModal()">Cancel</button>';
-    showModal("📂 Select Output Folder",
+    
+    var titleEl = document.querySelector("#modalContainer .modal-title");
+    if (titleEl) titleEl.textContent = "📂 Select Output Folder";
+    
+    modalBody.innerHTML = 
       '<div style="font-family:monospace;font-size:11px;color:var(--accent-light);margin-bottom:12px">📁 ' + sp + '</div>' +
-      (dirs.length > 0 ? '<div style="max-height:250px;overflow-y:auto">' + h + '</div>' : '<div style="font-size:12px;color:var(--text-muted)">No subfolders</div>'),
-      footer
-    );
+      (dirs.length > 0 ? '<div style="max-height:250px;overflow-y:auto">' + h + '</div>' : '<div style="font-size:12px;color:var(--text-muted)">No subfolders</div>');
+    
+    var footerEl = document.querySelector("#modalContainer .modal-footer");
+    if (footerEl) {
+      var parent = sp.split("/").slice(0, -1).join("/") || "/";
+      footerEl.innerHTML = 
+        '<button class="btn btn-primary" onclick="selectBrowseOutput(\'' + sp.replace(/'/g, "\'") + '\')">✅ Select</button>' +
+        (sp !== "/" ? '<button class="btn btn-sm" onclick="browseSkillOutput(\'' + parent.replace(/'/g, "\'") + '\')">⬆ Parent</button>' : '') +
+        '<button class="btn btn-ghost" onclick="cancelBrowseOutput()">Cancel</button>';
+    }
   });
+};
+
+window.selectBrowseOutput = function(path) {
+  var el = document.getElementById("qrsOutputPath");
+  if (el) el.value = path;
+  cancelBrowseOutput();
+};
+
+window.cancelBrowseOutput = function() {
+  var modalBody = document.querySelector("#modalContainer .modal-body");
+  var titleEl = document.querySelector("#modalContainer .modal-title");
+  var footerEl = document.querySelector("#modalContainer .modal-footer");
+  if (modalBody && window._skillRunOriginalBody) {
+    modalBody.innerHTML = window._skillRunOriginalBody;
+    window._skillRunOriginalBody = null;
+  }
+  if (titleEl) titleEl.textContent = titleEl.textContent.replace("📂 Select Output Folder", "Run:");
+  if (footerEl && window._skillRunOriginalFooter) {
+    footerEl.innerHTML = window._skillRunOriginalFooter;
+    window._skillRunOriginalFooter = null;
+  }
+  // Re-bind the Run button onclick
+  var runBtn = footerEl ? footerEl.querySelector(".btn-primary") : null;
+  // The button already has the onclick from original
 };
 
 async function executeSkillRun(encodedName) {
