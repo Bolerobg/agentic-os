@@ -76,25 +76,73 @@ def get_job_by_name(name: str) -> Optional[dict]:
     return None
 
 def run_skill(skill_name: str, trigger: str = "scheduler", input_text: str = ""):
-    """Execute a skill via the API."""
+    """Execute a skill via the LLM API."""
+    import sys
+    sys.path.insert(0, str(BASE_DIR.parent))
+    from server import BASE_DIR as SERVER_DIR, call_llm, read_file as srv_read_file, get_timestamp as srv_timestamp, append_audit as srv_audit
+
     audit_file = BASE_DIR.parent / "audit" / "audit.log"
     timestamp = datetime.now(timezone.utc).isoformat()
-    entry = {
+
+    # Read skill definition
+    skill_dir = SERVER_DIR / "skills" / skill_name
+    skill_md = ""
+    learnings = ""
+    if skill_dir.exists():
+        skill_md = (skill_dir / "SKILL.md").read_text() if (skill_dir / "SKILL.md").exists() else ""
+        learnings = (skill_dir / "learnings.md").read_text() if (skill_dir / "learnings.md").exists() else ""
+
+    # Build prompt
+    system = f"""You are executing the '{skill_name}' skill in Agentic OS.
+
+SKILL INSTRUCTIONS:
+{skill_md[:3000]}
+
+PAST LEARNINGS:
+{learnings[:1500] if learnings else '(none)'}
+
+Execute the task below following the skill instructions. Be thorough and practical."""
+
+    user = input_text if input_text else f"Execute the {skill_name} skill with default parameters. Provide a complete result."
+
+    # Execute via LLM
+    try:
+        result = call_llm([
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ])
+        status = "completed"
+    except Exception as e:
+        result = f"Error executing skill: {e}"
+        status = "failed"
+
+    # Save to learnings
+    if skill_dir.exists():
+        existing = learnings
+        new_entry = f"\n## {timestamp[:10]} (Scheduled by {trigger})\n- Input: {input_text or '(default)'}\n- Result: {result[:500]}\n"
+        (skill_dir / "learnings.md").write_text(existing + new_entry)
+
+    # Audit log
+    audit_entry = {
         "action": "scheduler_run",
         "skill": skill_name,
         "trigger": trigger,
+        "status": status,
+        "result_preview": result[:100],
         "timestamp": timestamp,
     }
     with open(audit_file, "a") as f:
-        f.write(json.dumps(entry) + "\n")
+        f.write(json.dumps(audit_entry) + "\n")
+
     emit_event({
         "type": "skill_run",
         "skill": skill_name,
         "trigger": trigger,
-        "status": "started",
+        "status": status,
     })
-    print(f"[{timestamp}] Skill '{skill_name}' triggered by {trigger}")
-    return {"status": "triggered", "skill": skill_name, "trigger": trigger}
+
+    print(f"[{timestamp}] Skill '{skill_name}' -> {status} (trigger: {trigger})")
+    return {"status": status, "skill": skill_name, "trigger": trigger, "result": result[:200]}
 
 
 # ─── File Watcher ─────────────────────────────────────────────
