@@ -197,6 +197,9 @@ async function sendChatMessage() {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    let fullText = '';
+    const contentEl = streamMsg ? streamMsg.element.querySelector('.chat-message-content') : null;
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -209,19 +212,24 @@ async function sendChatMessage() {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6));
-            if (data.type === 'token' && streamMsg) {
-              streamMsg.element.querySelector('.chat-message-content').textContent += data.text;
-              streamMsg.element.querySelector('.chat-message-content').innerHTML = escapeHtml(
-                streamMsg.element.querySelector('.chat-message-content').textContent
-              );
+            if (data.type === 'token' && contentEl) {
+              fullText += data.text;
+              contentEl.textContent = fullText;
               document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
             }
           } catch {}
         }
       }
     }
+    // Escape HTML once at the end for safe display
+    if (contentEl && fullText) {
+      contentEl.innerHTML = escapeHtml(fullText);
+    }
   } catch (err) {
-    if (streamMsg) streamMsg.element.querySelector('.chat-message-content').textContent = '⚠ Error: ' + err.message;
+    if (streamMsg) {
+      const el = streamMsg.element.querySelector('.chat-message-content');
+      if (el) el.textContent = '⚠ Error: ' + err.message;
+    }
   }
 
   if (streamMsg) streamMsg.element.querySelector('.chat-message-content').classList.remove('streaming');
