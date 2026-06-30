@@ -225,9 +225,14 @@ window.browseSkillOutput = function(currentPath) {
 };
 
 window.selectBrowseOutput = function(path) {
-  var el = document.getElementById("qrsOutputPath");
-  if (el) el.value = path;
+  // Save path first (input is gone after body restore)
+  window._selectedOutputPath = path;
   cancelBrowseOutput();
+  // After body restore, set the value
+  setTimeout(function() {
+    var el = document.getElementById("qrsOutputPath");
+    if (el) { el.value = window._selectedOutputPath || ""; window._selectedOutputPath = null; }
+  }, 50);
 };
 
 window.cancelBrowseOutput = function() {
