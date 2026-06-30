@@ -51,6 +51,7 @@ const api = {
   getStandards: () => api.get('/api/standards'),
   discoverStandards: () => api.post('/api/standards/discover'),
   chat: (agent, message, controller) => api.post('/api/chat', { agent, message }, controller),
+  chatLLM: (message, provider, model, controller) => api.post('/api/chat/llm', { message, provider, model }, controller),
   getChatHistory: () => api.get('/api/chat/history'),
   // Kanban
   getKanbanBoard: (status) => api.get(status ? `/api/kanban/board?status=${encodeURIComponent(status)}` : '/api/kanban/board'),

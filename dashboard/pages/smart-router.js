@@ -23,6 +23,7 @@ async function renderSmartRouter() {
             <option value="opencode">🔧 opencode (Code/DevOps)</option>
             <option value="hermes">⚡ Hermes (Memory/Scheduling)</option>
             <option value="gemini">🧠 Gemini CLI (Research/Analysis)</option>
+            <option value="jcode">⚡ jcode (JavaScript/Node.js)</option>
           </select>
         </div>
         <button class="btn btn-primary" onclick="suggestRouter()" style="margin-bottom:16px">🤖 Suggest Agent</button>
@@ -37,6 +38,7 @@ async function renderSmartRouter() {
         <tr><td><strong>🔧 opencode</strong></td><td>Code, DevOps, infra, git, file operations</td><td class="text-muted text-sm">code, deploy, git, terraform, docker, test, build, script</td></tr>
         <tr><td><strong>⚡ Hermes</strong></td><td>Memory, scheduling, messaging, skills</td><td class="text-muted text-sm">memory, schedule, cron, reminder, brain, plugin, backup</td></tr>
         <tr><td><strong>🧠 Gemini CLI</strong></td><td>Research, analysis, study, document, review</td><td class="text-muted text-sm">research, analyze, search, explain, study, learn, report</td></tr>
+        <tr><td><strong>⚡ jcode</strong></td><td>JavaScript, Node.js, frontend, web dev</td><td class="text-muted text-sm">javascript, node, npm, react, vue, frontend, web, api</td></tr>
       </table>
     </div>
   `;
@@ -50,7 +52,7 @@ async function suggestRouter() {
   try {
     const data = await api.suggestRouter(task);
     const result = document.getElementById('routerResult');
-    const agentIcons = { opencode: '🔧', hermes: '⚡', gemini: '🧠' };
+    const agentIcons = { opencode: '🔧', hermes: '⚡', gemini: '🧠', jcode: '⚡' };
     const confidenceColors = { high: 'var(--green)', medium: 'var(--yellow)', low: 'var(--text-muted)' };
     result.innerHTML = `
       <div class="card" style="border-color:${confidenceColors[data.confidence] || 'var(--border)'};margin-bottom:12px">

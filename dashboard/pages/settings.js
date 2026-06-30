@@ -17,12 +17,13 @@ async function renderSettings() {
     const dashboard = settings.dashboard || {};
     const limits = settings.free_tier_limits || {};
     const apiKeys = settings.api_keys || {};
+    const llm = settings.llm || {};
 
     document.getElementById('settingsForm').innerHTML = `
       <div class="card">
         <div class="card-header"><span class="card-title">🤖 Agent Preferences</span></div>
         <div class="grid grid-3">
-          ${['opencode', 'hermes', 'gemini'].map(a => `
+          ${['opencode', 'hermes', 'gemini', 'jcode'].map(a => `
             <div class="card" style="padding:14px">
               <div class="flex items-center gap-2 mb-2">
                 <div class="agent-dot ${prefs[a] && prefs[a].enabled !== false ? 'online' : 'offline'}" style="width:10px;height:10px"></div>
@@ -38,6 +39,52 @@ async function renderSettings() {
               </div>
             </div>
           `).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">🧠 LLM Configuration</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Default Provider</label>
+            <select id="llmProvider" class="form-select">
+              <option value="deepseek" ${llm.default_provider === 'deepseek' ? 'selected' : ''}>🤖 DeepSeek (default)</option>
+              <option value="openrouter" ${llm.default_provider === 'openrouter' ? 'selected' : ''}>🌐 OpenRouter</option>
+              <option value="gemini" ${llm.default_provider === 'gemini' ? 'selected' : ''}>🧠 Gemini</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">DeepSeek Model</label>
+            <input id="llmDSModel" class="form-input" value="${escapeHtml(llm.deepseek_model || 'deepseek-v4-pro')}" placeholder="deepseek-v4-pro">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">OpenRouter Model</label>
+          <input id="llmORModel" class="form-input" value="${escapeHtml(llm.openrouter_model || 'deepseek/deepseek-chat')}" placeholder="deepseek/deepseek-chat">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gemini Model</label>
+          <input id="llmGModel" class="form-input" value="${escapeHtml(llm.gemini_model || 'gemini-2.5-pro')}" placeholder="gemini-2.5-pro">
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">🔑 API Keys</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">DeepSeek API Key</label>
+            <input id="keyDeepseek" class="form-input" type="password" value="${escapeHtml(apiKeys.deepseek || '')}" placeholder="sk-...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">OpenRouter API Key</label>
+            <input id="keyOpenrouter" class="form-input" type="password" value="${escapeHtml(apiKeys.openrouter || '')}" placeholder="sk-or-v1-...">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Gemini API Key</label>
+            <input id="keyGemini" class="form-input" type="password" value="${escapeHtml(apiKeys.gemini || '')}" placeholder="Enter Gemini API key">
+          </div>
         </div>
       </div>
 
@@ -125,6 +172,13 @@ async function saveAllSettings() {
         opencode: { enabled: document.getElementById('agent_opencode').checked, binary: document.getElementById('bin_opencode').value },
         hermes: { enabled: document.getElementById('agent_hermes').checked, binary: document.getElementById('bin_hermes').value },
         gemini: { enabled: document.getElementById('agent_gemini').checked, binary: document.getElementById('bin_gemini').value },
+        jcode: { enabled: document.getElementById('agent_jcode').checked, binary: document.getElementById('bin_jcode').value },
+      },
+      llm: {
+        default_provider: document.getElementById('llmProvider').value,
+        deepseek_model: document.getElementById('llmDSModel').value,
+        openrouter_model: document.getElementById('llmORModel').value,
+        gemini_model: document.getElementById('llmGModel').value,
       },
       dashboard: {
         port: parseInt(document.getElementById('setPort').value) || 8080,
@@ -132,8 +186,9 @@ async function saveAllSettings() {
         dark_mode: document.getElementById('setDarkMode').checked,
       },
       api_keys: {
-        gemini: document.getElementById('keyGemini').value,
+        deepseek: document.getElementById('keyDeepseek').value,
         openrouter: document.getElementById('keyOpenrouter').value,
+        gemini: document.getElementById('keyGemini').value,
       },
       free_tier_limits: {
         gemini_flash: {
@@ -167,9 +222,10 @@ async function resetSettings() {
 async function confirmReset() {
   const defaults = {
     theme: 'dark',
-    agent_preferences: { opencode: { enabled: true, binary: 'opencode' }, hermes: { enabled: true, binary: 'hermes' }, gemini: { enabled: true, binary: 'gemini', model: 'gemini-2.5-flash' } },
+    agent_preferences: { opencode: { enabled: true, binary: 'opencode' }, hermes: { enabled: true, binary: 'hermes' }, gemini: { enabled: true, binary: 'gemini', model: 'gemini-2.5-flash' }, jcode: { enabled: true, binary: 'node' } },
+    llm: { default_provider: 'deepseek', deepseek_model: 'deepseek-v4-pro', openrouter_model: 'deepseek/deepseek-chat', gemini_model: 'gemini-2.5-pro' },
     dashboard: { port: 8080, host: '127.0.0.1', dark_mode: true },
-    api_keys: { gemini: '', openrouter: '' },
+    api_keys: { deepseek: '', openrouter: '', gemini: '' },
     free_tier_limits: { gemini_flash: { requests_per_day: 1500, tokens_per_day: 1000000 }, openrouter_free: { requests_per_day: 100, tokens_per_day: 200000 } },
   };
   try {

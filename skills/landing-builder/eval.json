@@ -1,0 +1,1 @@
+{"criteria": ["match_reference_design", "content_extraction_quality", "responsive_layout", "code_cleanliness"], "weights": [0.3, 0.3, 0.2, 0.2]}

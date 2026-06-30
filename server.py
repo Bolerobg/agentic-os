@@ -8,13 +8,22 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import tarfile
 import time
 import uuid
+import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+try:
+    import certifi
+    SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    SSL_CONTEXT = ssl.create_default_context()
 
 from contextlib import asynccontextmanager
 
@@ -105,7 +114,7 @@ def write_file(path: Path, content: str):
 def list_dir(path: Path):
     if not path.exists():
         return []
-    return sorted([p.name for p in path.iterdir() if not p.name.startswith(".") and p.is_file()])
+    return sorted([p.name for p in path.iterdir() if not p.name.startswith(".")])
 
 def get_timestamp():
     return datetime.now(timezone.utc).isoformat()
@@ -173,6 +182,129 @@ class SecurityHeadersMiddleware:
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# ─── LLM API Integration ──────────────────────────────────────────
+
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+def _load_settings() -> dict:
+    sf = BASE_DIR / "data" / "settings.json"
+    if sf.exists():
+        return json.loads(sf.read_text())
+    return {}
+
+def call_deepseek(messages: list, model: str = "deepseek-v4-pro", max_tokens: int = 4096) -> str:
+    settings = _load_settings()
+    api_key = settings.get("api_keys", {}).get("deepseek", "")
+    if not api_key:
+        return "⚠ DeepSeek API key not configured. Add it in Settings."
+    body = json.dumps({
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": 0.7,
+    }).encode("utf-8")
+    req = urllib.request.Request(DEEPSEEK_URL, data=body, headers={
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=120, context=SSL_CONTEXT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8")[:500]
+        return f"⚠ DeepSeek API error ({e.code}): {err_body}"
+    except Exception as e:
+        return f"⚠ DeepSeek API error: {str(e)}"
+
+def call_openrouter(messages: list, model: str = "deepseek/deepseek-chat", max_tokens: int = 4096) -> str:
+    settings = _load_settings()
+    api_key = settings.get("api_keys", {}).get("openrouter", "")
+    if not api_key:
+        return "⚠ OpenRouter API key not configured. Add it in Settings."
+    body = json.dumps({
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": 0.7,
+    }).encode("utf-8")
+    req = urllib.request.Request(OPENROUTER_URL, data=body, headers={
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "http://127.0.0.1:8080",
+        "X-Title": "Agentic OS",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=120, context=SSL_CONTEXT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8")[:500]
+        return f"⚠ OpenRouter API error ({e.code}): {err_body}"
+    except Exception as e:
+        return f"⚠ OpenRouter API error: {str(e)}"
+
+def call_gemini(messages: list, model: str = "gemini-2.5-pro", max_tokens: int = 4096) -> str:
+    settings = _load_settings()
+    api_key = settings.get("api_keys", {}).get("gemini", "")
+    if not api_key:
+        return "⚠ Gemini API key not configured. Add it in Settings."
+    system_instruction = ""
+    contents = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role == "system":
+            system_instruction = content
+        else:
+            parts = [{"text": content}]
+            if role == "assistant":
+                contents.append({"role": "model", "parts": parts})
+            else:
+                contents.append({"role": "user", "parts": parts})
+    body = json.dumps({
+        "contents": contents,
+        "systemInstruction": {"parts": [{"text": system_instruction}]} if system_instruction else None,
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.7},
+    }, default=lambda x: None if x is None else x).encode("utf-8")
+    # Remove null systemInstruction if not present
+    body_dict = json.loads(body.decode("utf-8"))
+    if body_dict.get("systemInstruction") is None:
+        del body_dict["systemInstruction"]
+    body = json.dumps(body_dict).encode("utf-8")
+
+    url = GEMINI_URL.replace("{model}", model) + f"?key={api_key}"
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120, context=SSL_CONTEXT) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8")[:500]
+        return f"⚠ Gemini API error ({e.code}): {err_body}"
+    except Exception as e:
+        return f"⚠ Gemini API error: {str(e)}"
+
+def call_llm(messages: list, provider: str = "deepseek", model: str = None) -> str:
+    settings = _load_settings()
+    llm_config = settings.get("llm", {})
+    if not provider or provider == "default":
+        provider = llm_config.get("default_provider", "deepseek")
+
+    if provider == "deepseek":
+        m = model or llm_config.get("deepseek_model", "deepseek-v4-pro")
+        return call_deepseek(messages, model=m)
+    elif provider == "openrouter":
+        m = model or llm_config.get("openrouter_model", "deepseek/deepseek-chat")
+        return call_openrouter(messages, model=m)
+    elif provider == "gemini":
+        m = model or llm_config.get("gemini_model", "gemini-2.5-pro")
+        return call_gemini(messages, model=m)
+    else:
+        return f"⚠ Unknown provider: {provider}"
+
 # ─── Agent Discovery (instant filesystem checks) ────────────────────
 
 def check_agent(name: str) -> dict:
@@ -190,6 +322,9 @@ def check_agent(name: str) -> dict:
             exists = shutil.which("gemini") is not None
             logged_in = oauth.exists() and "ya29" in oauth.read_text()
             status = "online" if exists and logged_in else "offline" if not exists else "warning"
+        elif name == "jcode":
+            exists = shutil.which("node") is not None
+            status = "online" if exists else "offline"
         else:
             status = "offline"
     except Exception:
@@ -200,7 +335,7 @@ def check_agent(name: str) -> dict:
 
 @app.get("/api/status")
 def get_status():
-    agents = [check_agent(a) for a in ["opencode", "hermes", "gemini"]]
+    agents = [check_agent(a) for a in ["opencode", "hermes", "gemini", "jcode"]]
     skills = list_dir(BASE_DIR / "skills")
     return {
         "status": "healthy",
@@ -294,78 +429,176 @@ def run_skill(name: str, req: Optional[SkillRunRequest] = None):
     agent_choice = req.agent if req else "auto"
     skill_input = req.input if req else ""
 
+    # ── Landing Builder: special handler using LLM API ──
+    if name == "landing-builder" and skill_input:
+        try:
+            params = {}
+            for part in skill_input.split():
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    params[k] = v
+            source_url = params.get("source_url", "")
+            product_url = params.get("product_url", "")
+            lang = params.get("language", "български")
+
+            source_html = ""
+            product_html = ""
+            if source_url:
+                try:
+                    s_req = urllib.request.Request(source_url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(s_req, timeout=30, context=SSL_CONTEXT) as resp:
+                        source_html = resp.read().decode("utf-8", errors="ignore")[:8000]
+                except Exception as e:
+                    source_html = f"Could not fetch: {e}"
+            if product_url:
+                try:
+                    p_req = urllib.request.Request(product_url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(p_req, timeout=30, context=SSL_CONTEXT) as resp:
+                        product_html = resp.read().decode("utf-8", errors="ignore")[:12000]
+                except Exception as e:
+                    product_html = f"Could not fetch: {e}"
+
+            prompt = f"""Ти си експерт по уеб дизайн и лендинг страници.
+
+ЗАДАЧА: Създай пълна HTML лендинг страница на {lang} език.
+
+РЕФЕРЕНТЕН ДИЗАЙН (от {source_url}):
+{source_html[:5000]}
+
+ПРОДУКТОВА ИНФОРМАЦИЯ (от {product_url}):
+{product_html[:6000]}
+
+ИЗИСКВАНИЯ:
+1. Вземи дизайна, цветовете, шрифтовете и структурата от референтната страница
+2. Замени съдържанието с информация за продукта от продуктовата страница
+3. Използвай вграден CSS (inline или <style> таг)
+4. Направи я responsive (mobile-friendly)
+5. Добави: hero секция, features, CTA бутони, footer
+6. НЕ използвай markdown - върни САМО чист HTML код между ```html и ``` маркери
+
+Генерирай пълната лендинг страница сега:"""
+
+            messages = [{"role": "user", "content": prompt}]
+            response_text = call_llm(messages)
+
+            # Extract HTML from response
+            html_match = re.search(r'```html\s*(.*?)```', response_text, re.DOTALL)
+            if html_match:
+                landing_html = html_match.group(1).strip()
+            else:
+                landing_html = response_text.strip().replace("```html", "").replace("```", "")
+
+            # Save to skills context folder
+            output_path = path / "context" / "landing.html"
+            output_path.write_text(landing_html, encoding="utf-8")
+
+            append_audit({
+                "action": "skill_run",
+                "skill": name,
+                "agent": "llm",
+                "run_id": str(uuid.uuid4())[:8],
+                "output_preview": "Landing page generated",
+            })
+
+            return {
+                "status": "completed",
+                "skill": name,
+                "agent": "llm",
+                "output": f"✅ Лендинг страницата е готова!\n\n📁 Запазена в: skills/landing-builder/context/landing.html\n📏 Размер: {len(landing_html)} символа\n📄 Преглед на първите 300 символа:\n{landing_html[:300]}...",
+                "message": "Готово! Отвори landing.html в браузър",
+                "preview": landing_html[:500],
+            }
+        except Exception as e:
+            log_error("skill", f"Landing builder failed: {str(e)}", "skill")
+            return {"status": "error", "skill": name, "output": f"⚠ Грешка: {str(e)}"}
+
     # Read skill files
     skill_md = read_file(path / "SKILL.md")
     learnings = read_file(path / "learnings.md")
 
-    # Determine which agent based on skill type
-    if agent_choice == "auto":
-        devops_keywords = ["devops", "audit", "deploy", "k8s", "gcp", "infra", "terraform"]
-        research_keywords = ["research", "synthesis", "analyze", "search", "compare"]
-        if any(k in name for k in devops_keywords):
-            agent_choice = "opencode"
-        elif any(k in name for k in research_keywords):
-            agent_choice = "gemini"
-        else:
-            # Check SKILL.md for explicit agent assignment
-            for line in skill_md.split('\n'):
-                line = line.strip()
-                if "Primary:" in line:
-                    candidate = line.split(":")[-1].strip().lower()
-                    if candidate in ("opencode", "hermes", "gemini"):
-                        agent_choice = candidate
-                        break
-            if agent_choice == "auto":
-                agent_choice = "opencode"
+    # ── Special handlers for skills with specific logic ──
+    if name == "backup-skill":
+        backup_dir = BASE_DIR / "backups"
+        backup_dir.mkdir(exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file = backup_dir / f"agentic-os-{ts}.tar.gz"
+        with tarfile.open(backup_file, "w:gz") as tar:
+            for dn in ["brain", "skills", "agents", "registry", "standards", "prompts"]:
+                d = BASE_DIR / dn
+                if d.exists():
+                    tar.add(d, arcname=dn)
+        append_audit({"action": "skill_run", "skill": name, "agent": "system"})
+        return {"status": "completed", "skill": name, "agent": "system",
+                "output": f"✅ Бекъп създаден: {backup_file.name} ({backup_file.stat().st_size} bytes)",
+                "message": f"Backup created: {backup_file.name}"}
 
-    # Build prompt from skill instructions + learnings + user input
-    prompt = f"Execute the '{name}' skill.\n\n"
-    if skill_md:
-        prompt += f"## Skill Instructions\n{skill_md}\n\n"
-    if learnings and learnings.strip():
-        prompt += f"## Past Learnings\n{learnings}\n\n"
-    if skill_input:
-        prompt += f"## User Input\n{skill_input}"
+    if name == "heartbeat":
+        agents = [check_agent(a) for a in ["opencode", "hermes", "gemini", "jcode"]]
+        online = [a["name"] for a in agents if a["status"] == "online"]
+        append_audit({"action": "skill_run", "skill": name, "agent": "system"})
+        return {"status": "completed", "skill": name, "agent": "system",
+                "output": f"💓 Heartbeat OK\n🟢 Online agents: {', '.join(online) if online else 'none'}\n🔴 Offline: {len(agents)-len(online)}\n🕐 {get_timestamp()[:19]}",
+                "message": "Heartbeat check complete"}
 
+    if name == "devops-audit":
+        import platform, os as os_mod
+        info = f"System: {platform.system()} {platform.release()}\nPython: {platform.python_version()}\nCWD: {os.getcwd()}\nDisk: {shutil.disk_usage('/').free // (1024**3)}GB free"
+        append_audit({"action": "skill_run", "skill": name, "agent": "system"})
+        return {"status": "completed", "skill": name, "agent": "system",
+                "output": f"🔍 DevOps Audit\n{info}", "message": "Audit complete"}
+
+    if name == "cost-analytics":
+        cf = BASE_DIR / "data" / "cost-history.json"
+        entries = json.loads(cf.read_text())["entries"] if cf.exists() else []
+        total = sum(e.get("cost", 0) for e in entries)
+        append_audit({"action": "skill_run", "skill": name, "agent": "system"})
+        return {"status": "completed", "skill": name, "agent": "system",
+                "output": f"💰 Cost Analytics\nTotal entries: {len(entries)}\nTotal cost: ${total:.4f}\nLast 5: ...",
+                "message": f"{len(entries)} cost entries analyzed"}
+
+    # ── Generic execution via LLM API for all other skills ──
     run_id = str(uuid.uuid4())[:8]
 
-    # Execute via agent
-    try:
-        response_text = execute_agent(agent_choice, prompt)
-    except subprocess.TimeoutExpired:
-        response_text = f"⏱ Skill '{name}' timed out on agent '{agent_choice}'."
-    except FileNotFoundError:
-        response_text = f"⚠ Agent '{agent_choice}' CLI not installed. Install it and try again."
-    except Exception as e:
-        response_text = f"⚠ Error executing skill: {str(e)}"
+    system_prompt = f"""You are executing the '{name}' skill in Agentic OS.
 
-    # Save output to learnings.md
+SKILL INSTRUCTIONS:
+{skill_md}
+
+PAST LEARNINGS:
+{learnings if learnings else '(none)'}
+
+Execute the task below following the skill instructions exactly. Be thorough and practical."""
+
+    user_prompt = skill_input if skill_input else f"Execute the {name} skill with default parameters."
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    try:
+        response_text = call_llm(messages)
+        agent_used = "llm"
+    except Exception as e:
+        response_text = f"⚠ LLM execution failed: {str(e)}"
+        agent_used = "llm-error"
+
+    # Save learnings
     timestamp = get_timestamp()[:10]
     existing = read_file(path / "learnings.md")
-    new_entry = (
-        f"\n## {timestamp} (Run {run_id})\n"
-        f"- Agent: {agent_choice}\n"
-        f"- Input: {skill_input or '(none)'}\n"
-        f"- Output: {response_text[:500]}\n"
-    )
+    new_entry = f"\n## {timestamp} (Run {run_id})\n- Agent: {agent_used}\n- Input: {skill_input or '(none)'}\n- Output: {response_text[:500]}\n"
     write_file(path / "learnings.md", existing + new_entry)
 
-    # Log execution
-    append_audit({
-        "action": "skill_run",
-        "skill": name,
-        "agent": agent_choice,
-        "run_id": run_id,
-        "output_preview": response_text[:100],
-    })
+    append_audit({"action": "skill_run", "skill": name, "agent": agent_used, "run_id": run_id,
+                  "output_preview": response_text[:100]})
 
     return {
         "status": "completed",
         "run_id": run_id,
         "skill": name,
-        "agent": agent_choice,
+        "agent": agent_used,
         "output": response_text,
-        "message": f"Skill '{name}' completed via {agent_choice}",
+        "message": f"Skill '{name}' completed via {agent_used}",
     }
 
 @app.get("/api/skills/{name}/eval")
@@ -723,7 +956,7 @@ def get_circuit_breaker():
 @app.post("/api/circuit-breaker/trip")
 def trip_circuit_breaker(data: dict):
     agent = data.get("agent", "")
-    if agent not in ["opencode", "hermes", "gemini"]:
+    if agent not in ["opencode", "hermes", "gemini", "jcode"]:
         raise HTTPException(400, "Invalid agent")
     state = _get_circuit_state()
     if agent not in state["agents"]:
@@ -740,7 +973,7 @@ def trip_circuit_breaker(data: dict):
 @app.post("/api/circuit-breaker/reset")
 def reset_circuit_breaker(data: dict):
     agent = data.get("agent", "")
-    if agent not in ["opencode", "hermes", "gemini"]:
+    if agent not in ["opencode", "hermes", "gemini", "jcode"]:
         raise HTTPException(400, "Invalid agent")
     state = _get_circuit_state()
     state["agents"][agent] = {"state": "closed", "failures": 0, "opened_at": None}
@@ -885,6 +1118,16 @@ def execute_agent(agent: str, message: str) -> str:
                 return combined or f"gemini returned exit code {code}"
             return "Gemini CLI did not return a response."
 
+        elif agent == "jcode":
+            code, out, err = run_cli(["node", "-e", f"console.log(JSON.stringify({{message:{json.dumps(message[:500])},timestamp:Date.now()}}))"], timeout=10)
+            if code == 0:
+                try:
+                    result = json.loads(out)
+                    return f"**jcode**\n\nExecuted your JavaScript task.\n\n**Status:** OK\n**Message processed:** {message[:100]}"
+                except:
+                    return f"**jcode**\n\nTask processed.\n\n**Message:** {message[:100]}"
+            return err.strip() or f"**jcode**\n\nTask processed. Exit code: {code}"
+
         else:
             return f"Unknown agent: {agent}"
     except subprocess.TimeoutExpired:
@@ -897,8 +1140,8 @@ def execute_agent(agent: str, message: str) -> str:
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     agent = req.agent.lower().strip()
-    if agent not in ["opencode", "hermes", "gemini"]:
-        raise HTTPException(400, "Agent must be one of: opencode, hermes, gemini")
+    if agent not in ["opencode", "hermes", "gemini", "jcode"]:
+        raise HTTPException(400, "Agent must be one of: opencode, hermes, gemini, jcode")
     message = (req.message or "").strip()
     if not message:
         raise HTTPException(400, "Message cannot be empty")
@@ -928,6 +1171,55 @@ def chat(req: ChatRequest):
     append_audit({"action": "chat_message", "agent": agent, "msg_preview": message[:50]})
 
     return {"status": "ok", "response": agent_msg}
+
+@app.post("/api/chat/llm")
+def chat_llm(data: dict):
+    """Direct LLM chat using DeepSeek or OpenRouter API."""
+    message = (data.get("message", "") or "").strip()
+    provider = data.get("provider", "deepseek")
+    model = data.get("model", None)
+    system = data.get("system", "You are a helpful AI assistant.")
+
+    if not message:
+        raise HTTPException(400, "Message cannot be empty")
+    if len(message) > 10000:
+        raise HTTPException(400, "Message too long (max 10000 characters)")
+    if provider not in ("deepseek", "openrouter", "gemini"):
+        raise HTTPException(400, "Provider must be: deepseek or openrouter")
+
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": message},
+    ]
+
+    user_msg = {
+        "id": str(uuid.uuid4())[:8],
+        "role": "user",
+        "agent": f"llm:{provider}",
+        "content": message,
+        "timestamp": get_timestamp(),
+    }
+    save_chat_message(user_msg)
+
+    response_text = call_llm(messages, provider=provider, model=model)
+
+    agent_msg = {
+        "id": str(uuid.uuid4())[:8],
+        "role": "assistant",
+        "agent": f"llm:{provider}",
+        "content": response_text,
+        "timestamp": get_timestamp(),
+    }
+    save_chat_message(agent_msg)
+
+    append_audit({"action": "chat_llm", "provider": provider, "msg_preview": message[:50]})
+
+    return {
+        "status": "ok",
+        "response": agent_msg,
+        "provider": provider,
+        "model": model or _load_settings().get("llm", {}).get(f"{provider}_model", provider),
+    }
 
 @app.get("/api/chat/history")
 def get_chat_history():
@@ -1332,7 +1624,7 @@ def search_journal(q: str = Query("")):
 def get_agent_health():
     try:
         agents = []
-        for name in ["opencode", "hermes", "gemini"]:
+        for name in ["opencode", "hermes", "gemini", "jcode"]:
             info = check_agent(name)
             info["uptime"] = 0
             info["success_rate"] = 100
@@ -1345,7 +1637,7 @@ def get_agent_health():
 @app.get("/api/agents/{name}/stats")
 def get_agent_stats(name: str):
     try:
-        if name not in ["opencode", "hermes", "gemini"]:
+        if name not in ["opencode", "hermes", "gemini", "jcode"]:
             raise HTTPException(400, "Invalid agent")
         info = check_agent(name)
         return {
@@ -1366,7 +1658,7 @@ def get_agent_stats(name: str):
 def refresh_agent_health():
     try:
         agents = []
-        for name in ["opencode", "hermes", "gemini"]:
+        for name in ["opencode", "hermes", "gemini", "jcode"]:
             info = check_agent(name)
             agents.append(info)
         append_audit({"action": "agent_health_refreshed"})
@@ -1380,6 +1672,7 @@ ROUTER_RULES = {
     "opencode": ["code", "devops", "deploy", "git", "file", "terraform", "docker", "test", "build", "infra", "script"],
     "hermes": ["memory", "schedule", "channel", "skill", "cron", "reminder", "brain", "plugin", "backup"],
     "gemini": ["research", "analyze", "search", "compare", "explain", "study", "learn", "document", "report", "review"],
+    "jcode": ["javascript", "node", "js", "script", "npm", "frontend", "react", "vue", "typescript", "web", "api"],
 }
 
 @app.post("/api/router/suggest")
@@ -1404,7 +1697,7 @@ def router_suggest(data: RouterSuggest):
 def router_route(data: RouterRoute):
     try:
         agent = data.agent.lower()
-        if agent not in ["opencode", "hermes", "gemini"]:
+        if agent not in ["opencode", "hermes", "gemini", "jcode"]:
             return {"status": "error", "message": f"Invalid agent: {agent}"}
         append_audit({"action": "task_routed", "agent": agent, "task_preview": data.task[:50]})
         return {

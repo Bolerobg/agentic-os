@@ -35,6 +35,35 @@ async function renderChat() {
             <div class="chat-agent-desc">Research & Analysis</div>
           </div>
         </div>
+        <div class="chat-agent" data-agent="jcode" onclick="selectAgent('jcode')">
+          <div class="agent-dot online"></div>
+          <div>
+            <div class="chat-agent-name">jcode</div>
+            <div class="chat-agent-desc">JavaScript & Node.js</div>
+          </div>
+        </div>
+        <div class="chat-agents-label" style="margin-top:12px">LLM APIs</div>
+        <div class="chat-agent" data-agent="llm:deepseek" onclick="selectAgent('llm:deepseek')">
+          <div class="agent-dot online"></div>
+          <div>
+            <div class="chat-agent-name">🤖 DeepSeek</div>
+            <div class="chat-agent-desc">deepseek-v4-pro</div>
+          </div>
+        </div>
+        <div class="chat-agent" data-agent="llm:openrouter" onclick="selectAgent('llm:openrouter')">
+          <div class="agent-dot online"></div>
+          <div>
+            <div class="chat-agent-name">🌐 OpenRouter</div>
+            <div class="chat-agent-desc">deepseek/deepseek-chat</div>
+          </div>
+        </div>
+        <div class="chat-agent" data-agent="llm:gemini" onclick="selectAgent('llm:gemini')">
+          <div class="agent-dot online"></div>
+          <div>
+            <div class="chat-agent-name">🧠 Gemini</div>
+            <div class="chat-agent-desc">gemini-2.5-pro</div>
+          </div>
+        </div>
         <div style="margin-top:auto;padding:12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">
           <div id="chatAgentStatus">opencode • ready</div>
         </div>
@@ -49,6 +78,10 @@ async function renderChat() {
               <button class="btn btn-sm" onclick="sendQuickPrompt('opencode','Check the system status and running processes')">🔍 System Check</button>
               <button class="btn btn-sm" onclick="sendQuickPrompt('hermes','What did I work on recently?')">🧠 Recall Memory</button>
               <button class="btn btn-sm" onclick="sendQuickPrompt('gemini','Research the latest trends in AI agents')">📊 Research</button>
+              <button class="btn btn-sm" onclick="sendQuickPrompt('jcode','Run a JavaScript task with Node.js')">⚡ jcode</button>
+              <button class="btn btn-sm" onclick="sendQuickPrompt('llm:deepseek','Здравей, с какво можеш да ми помогнеш?')">🤖 DeepSeek</button>
+              <button class="btn btn-sm" onclick="sendQuickPrompt('llm:openrouter','Hello, how can you help me?')">🌐 OpenRouter</button>
+              <button class="btn btn-sm" onclick="sendQuickPrompt('llm:gemini','Explain what you can do')">🧠 Gemini</button>
             </div>
           </div>
         </div>
@@ -129,17 +162,26 @@ async function sendChatMessage() {
   const typingId = showTypingIndicator(agent);
 
   try {
-    // Client-side timeout: 200s (slightly more than Hermes' 180s backend timeout)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 200000);
-    const r = await api.chat(agent, message, controller);
-    clearTimeout(timeoutId);
-    removeTypingIndicator(typingId);
-    addChatMessage('assistant', r.response.content, agent);
 
-    // Store in local history
+    let r;
+    if (agent.startsWith('llm:')) {
+      const provider = agent.replace('llm:', '');
+      r = await api.chatLLM(message, provider, null, controller);
+    } else {
+      r = await api.chat(agent, message, controller);
+    }
+
+    clearTimeout(timeoutId);
+
+    removeTypingIndicator(typingId);
+    const content = r.response ? r.response.content : (r.output || 'No response');
+    const responseAgent = r.response ? r.response.agent : agent;
+    addChatMessage('assistant', content, responseAgent);
+
     window._chatHistory.push({ role: 'user', content: message, agent });
-    window._chatHistory.push({ role: 'assistant', content: r.response.content, agent });
+    window._chatHistory.push({ role: 'assistant', content: content, agent: responseAgent });
   } catch (err) {
     removeTypingIndicator(typingId);
     const msg = err.name === 'AbortError' ? 'Request timed out after 200s' : err.message;

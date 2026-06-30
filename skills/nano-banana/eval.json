@@ -1,0 +1,12 @@
+{
+  "criteria": [
+    "completeness",
+    "accuracy",
+    "usefulness"
+  ],
+  "weights": [
+    0.4,
+    0.3,
+    0.3
+  ]
+}
