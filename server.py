@@ -1689,6 +1689,7 @@ async def chat_stream(data: dict):
     agent = (data.get("agent", "") or "").lower().strip()
     message = (data.get("message", "") or "").strip()
     project_path = (data.get("project", "") or "").strip()
+    user_model = (data.get("model", "") or "").strip()
     if not message:
         raise HTTPException(400, "Message required")
 
@@ -1726,15 +1727,15 @@ async def chat_stream(data: dict):
 
     async def generate():
         full_response = ""
-        yield f"data: {json.dumps({'type': 'start', 'agent': agent})}\n\n"
+        yield f"data: {json.dumps({'type': 'start', 'agent': agent, 'model': user_model or 'default'})}\n\n"
         try:
             if provider == "openrouter":
-                streamer = stream_openrouter(messages)
+                streamer = stream_openrouter(messages, model=user_model or "deepseek/deepseek-chat")
             elif provider == "gemini":
-                text = call_gemini(messages)
+                text = call_gemini(messages, model=user_model or "gemini-2.5-pro")
                 streamer = stream_gemini_chunks(text)
             else:
-                streamer = stream_deepseek(messages)
+                streamer = stream_deepseek(messages, model=user_model or "deepseek-v4-pro")
             for token in streamer:
                 if token:
                     full_response += token

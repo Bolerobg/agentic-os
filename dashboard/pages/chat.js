@@ -66,6 +66,9 @@ async function renderChat() {
         </div>
         <div style="margin-top:auto;padding:12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">
           <div id="chatAgentStatus">opencode • ready</div>
+          <select id="chatModelSelect" class="form-select" style="margin-top:6px;font-size:10px;height:26px;padding:2px 6px" onchange="window._chatModel=this.value">
+            <option value="">Default model</option>
+          </select>
         </div>
       </div>
       <div class="chat-main">
@@ -129,6 +132,23 @@ function selectAgent(agent) {
   document.getElementById('chatAgentIndicator').textContent = agent;
   document.getElementById('chatInput').focus();
   updateAgentStatusText();
+  updateModelSelect(agent);
+}
+
+function updateModelSelect(agent) {
+  const sel = document.getElementById('chatModelSelect');
+  const models = {
+    'opencode': [['','DeepSeek v4-pro (default)'],['deepseek-v4-pro','DeepSeek v4-pro'],['deepseek-chat','DeepSeek Chat']],
+    'hermes': [['','OpenRouter default'],['deepseek/deepseek-chat','DeepSeek Chat'],['deepseek/deepseek-r1','DeepSeek R1'],['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet'],['openai/gpt-4o','GPT-4o'],['google/gemini-2.5-pro','Gemini 2.5 Pro'],['google/gemini-2.5-flash','Gemini 2.5 Flash'],['meta-llama/llama-4-maverick','Llama 4 Maverick'],['qwen/qwen3-235b','Qwen 3 235B'],['mistralai/mistral-large','Mistral Large']],
+    'gemini': [['','Gemini 2.5 Pro (default)'],['gemini-2.5-pro','Gemini 2.5 Pro'],['gemini-2.5-flash','Gemini 2.5 Flash']],
+    'jcode': [['','DeepSeek v4-pro (default)'],['deepseek-v4-pro','DeepSeek v4-pro']],
+    'llm:deepseek': [['','DeepSeek v4-pro'],['deepseek-v4-pro','DeepSeek v4-pro'],['deepseek-chat','DeepSeek Chat']],
+    'llm:openrouter': [['','OpenRouter default'],['deepseek/deepseek-chat','DeepSeek Chat'],['deepseek/deepseek-r1','DeepSeek R1'],['anthropic/claude-3.5-sonnet','Claude 3.5 Sonnet'],['openai/gpt-4o','GPT-4o'],['google/gemini-2.5-pro','Gemini 2.5 Pro'],['google/gemini-2.5-flash','Gemini 2.5 Flash'],['meta-llama/llama-4-maverick','Llama 4 Maverick'],['qwen/qwen3-235b','Qwen 3 235B'],['mistralai/mistral-large','Mistral Large']],
+    'llm:gemini': [['','Gemini 2.5 Pro'],['gemini-2.5-pro','Gemini 2.5 Pro'],['gemini-2.5-flash','Gemini 2.5 Flash']],
+  };
+  const opts = models[agent] || [['','Default model']];
+  sel.innerHTML = opts.map(([v,label]) => `<option value="${v}">${label}</option>`).join('');
+  window._chatModel = '';
 }
 
 function updateAgentStatusText() {
@@ -167,7 +187,8 @@ async function sendChatMessage() {
   const streamMsg = addChatMessage('assistant', '', agent, true);
 
   try {
-    const body = JSON.stringify({ agent, message, project });
+    const model = window._chatModel || '';
+    const body = JSON.stringify({ agent, message, project, model });
     const resp = await fetch('/api/chat/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -376,8 +397,9 @@ function selectBrowsePath(path) {
   showToast('📁 Project: ' + path.split('/').pop() || path, 'success');
 }
 
-function sendQuickPrompt(agent, message) {
+function sendQuickPrompt(agent, message, model) {
   selectAgent(agent);
   document.getElementById('chatInput').value = message;
+  if (model) { window._chatModel = model; document.getElementById('chatModelSelect').value = model; }
   sendChatMessage();
 }
