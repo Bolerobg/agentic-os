@@ -1779,32 +1779,29 @@ def clean_hermes_output(raw: str) -> str:
     return '\n'.join(non_meta[-5:]) or raw
 
 def execute_agent(agent: str, message: str) -> str:
-    """Execute agent via API (CLI tools are interactive and cannot be used programmatically)."""
+    """Execute agent via API."""
     try:
-        if agent == "opencode":
-            return call_llm([{"role": "user", "content": message}], provider="deepseek")
+        # Detect build/create intent and add system prompt
+        msg_lower = message.lower()
+        build_intent = any(kw in msg_lower for kw in ["направи", "създай", "изгради", "build", "create", "generate", "html", "landing", "сайт", "лендинг", "код", "code", "file", "page"])
+        system = ""
+        if build_intent:
+            system = "You are an autonomous code-generating agent. When asked to build or create something, you MUST output COMPLETE, working code in code blocks. Format EACH FILE like this:\n\n```html:path/to/file.html\n(full code here)\n```\n\n```python:path/to/file.py\n(full code here)\n```\n\nAlways use backtick code blocks with language:filepath format. NEVER describe code - always WRITE it. Write COMPLETE files, no placeholders."
 
-        elif agent == "hermes":
-            return call_llm([{"role": "user", "content": message}], provider="openrouter")
+        provider_map = {"opencode": "deepseek", "hermes": "openrouter", "gemini": "gemini", "jcode": "deepseek"}
+        provider = provider_map.get(agent, "deepseek")
 
-        elif agent == "gemini":
-            # Use Gemini API directly
-            return call_llm([{"role": "user", "content": message}], provider="gemini")
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        if agent == "jcode":
+            messages.append({"role": "system", "content": "You are a JavaScript/Node.js expert."})
+        messages.append({"role": "user", "content": message})
 
-        elif agent == "jcode":
-            return call_llm([
-                {"role": "system", "content": "You are a JavaScript/Node.js expert. Help with JS, TypeScript, Node, npm, frontend frameworks. Respond concisely with code examples when relevant."},
-                {"role": "user", "content": message}
-            ], provider="deepseek")
+        return call_llm(messages, provider=provider)
 
-        else:
-            return f"Unknown agent: {agent}"
-    except subprocess.TimeoutExpired:
-        return f"⏱ Agent '{agent}' timed out.\n\nRun `{agent} --help` in your terminal for CLI usage.\n\n**Message:** {message[:100]}"
-    except FileNotFoundError:
-        return f"⚠ Agent '{agent}' CLI not installed. Install it and try again."
     except Exception as e:
-        return f"⚠ Error communicating with {agent}: {str(e)}"
+        return f"⚠ Error: {str(e)}"
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):

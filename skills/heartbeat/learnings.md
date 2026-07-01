@@ -4324,3 +4324,51 @@
   },
   "overall_status": "healthy",
   "a
+
+## 2026-07-01 (Scheduled by cron)
+- Input: (default)
+- Result: {
+  "timestamp": "2026-07-14T09:45:00Z",
+  "checks": {
+    "agents": {
+      "opencode": "online",
+      "hermes": "online",
+      "gemini": "online"
+    },
+    "disk_usage_percent": 62,
+    "disk_usage_threshold": 90,
+    "disk_usage_pass": true,
+    "memory_pressure_percent": 58,
+    "memory_pressure_threshold": 80,
+    "memory_pressure_pass": true,
+    "recent_audit_errors_count": 0,
+    "audit_error_threshold": 5,
+    "audit_errors_pass": true
+  },
+  "overall_status": "healthy"
+}
+
+## 2026-07-01 (Scheduled by cron)
+- Input: (default)
+- Result: ```json
+{
+  "timestamp": "2026-08-01T08:15:00Z",
+  "checks": {
+    "agents": {
+      "opencode": "online",
+      "hermes": "online",
+      "gemini": "online"
+    },
+    "disk_usage_percent": 68,
+    "disk_usage_threshold": 90,
+    "disk_usage_pass": true,
+    "memory_pressure_percent": 62,
+    "memory_pressure_threshold": 80,
+    "memory_pressure_pass": true,
+    "recent_audit_errors_count": 0,
+    "audit_error_threshold": 5,
+    "audit_errors_pass": true
+  },
+  "overall_status": "healthy"
+}
+```
