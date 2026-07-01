@@ -207,7 +207,7 @@ def call_deepseek(messages: list, model: str = "deepseek-v4-pro", max_tokens: in
     body = json.dumps({
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
+        "max_tokens": min(max_tokens, 163840),
         "temperature": 0.7,
     }).encode("utf-8")
     req = urllib.request.Request(DEEPSEEK_URL, data=body, headers={
@@ -232,7 +232,7 @@ def call_openrouter(messages: list, model: str = "deepseek/deepseek-chat", max_t
     body = json.dumps({
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
+        "max_tokens": min(max_tokens, 4096),  # OpenRouter free tier limit
         "temperature": 0.7,
     }).encode("utf-8")
     req = urllib.request.Request(OPENROUTER_URL, data=body, headers={
@@ -292,7 +292,7 @@ def call_gemini(messages: list, model: str = "gemini-2.5-pro", max_tokens: int =
     except Exception as e:
         return f"⚠ Gemini API error: {str(e)}"
 
-def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 384000) -> str:
+def call_llm(messages: list, provider: str = "deepseek", model: str = None, max_tokens: int = 163840) -> str:
     settings = _load_settings()
     llm_config = settings.get("llm", {})
     if not provider or provider == "default":
@@ -717,7 +717,7 @@ CRITICAL RULES:
     ]
 
     try:
-        response_text = call_llm(messages, max_tokens=384000)
+        response_text = call_llm(messages, max_tokens=163840)
         agent_used = "llm"
     except Exception as e:
         response_text = f"⚠ LLM execution failed: {str(e)}"
@@ -1778,38 +1778,12 @@ def clean_hermes_output(raw: str) -> str:
     return '\n'.join(non_meta[-5:]) or raw
 
 def execute_agent(agent: str, message: str) -> str:
-    """Execute agent via CLI tool when available, fallback to API."""
+    """Execute agent via API (CLI tools are interactive and cannot be used programmatically)."""
     try:
         if agent == "opencode":
-            # Try real opencode CLI first
-            opencode_path = _find_bin("opencode")
-            if opencode_path:
-                try:
-                    result = subprocess.run(
-                        [opencode_path, "run", message],
-                        capture_output=True, text=True, timeout=120,
-                        env={**os.environ, "OPENCODE_NO_COLOR": "1"}
-                    )
-                    if result.returncode == 0:
-                        return result.stdout.strip() or result.stderr.strip()
-                except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
-                    pass  # Fall through to API
             return call_llm([{"role": "user", "content": message}], provider="deepseek")
 
         elif agent == "hermes":
-            # Try real hermes CLI first
-            hermes_path = _find_bin("hermes")
-            if hermes_path:
-                try:
-                    result = subprocess.run(
-                        [hermes_path, "chat", "-q", message],
-                        capture_output=True, text=True, timeout=120,
-                        env={**os.environ, "NO_COLOR": "1"}
-                    )
-                    if result.returncode == 0:
-                        return result.stdout.strip() or result.stderr.strip()
-                except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
-                    pass
             return call_llm([{"role": "user", "content": message}], provider="openrouter")
 
         elif agent == "gemini":

@@ -386,3 +386,50 @@ print("hello")
 print("audit ok")
 ```
 - Files created: 1
+
+## 2026-07-01 (Run 205b7d0f)
+- Agent: llm
+- Input: Write ```python:test_audit.py``` with print("system test ok")
+- Output: ⚠️ **Cannot execute this request**  
+
+I am currently loaded with the **forex‑mt5‑bot** skill, which is strictly specialized in building modular MetaTrader 5 trading bots **step‑by‑step** from an attached strategy file.  
+
+Your input `"Write python:test_audit.py with print(...)"` does **not** match any of the allowed interactive commands (`/plan`, `/next`, `/fix`, `/explain`, `/audit`, `/status`, `/retry`, `/ml_report`), and writing arbitrary helper scripts is outside this skill’s scope unless th
+
+## 2026-07-01 (Run abdd85d1)
+- Agent: llm
+- Input: Write ```python:test.py``` with print(42)
+- Output: I am currently executing the **forex-mt5-bot** skill. This skill is strictly specialized for building modular MT5 trading bots **step‑by‑step** from an attached strategy file.  
+
+Your request to write `test.py` with `print(42)` does not match any of the allowed interactive commands (`/plan`, `/next`, `/fix`, `/explain`, `/audit`, `/status`, `/retry`, `/ml_report`) and falls outside the skill’s scope.  
+
+To proceed with this skill, please attach a **file with your trading strategy/rules** so I ca
+
+## 2026-07-01 (Run 2d53103c)
+- Agent: llm
+- Input: Write ```python:hello.py``` with print(1)
+- Output: В момента съм в режим **forex‑mt5‑bot**, специализиран за изграждане на модулни трейдинг ботове за MetaTrader 5.  
+
+Съгласно правилата на скила, имам право да изпълнявам **само** командите от списъка (`/plan`, `/next`, `/fix`, `/explain`, `/audit`, `/status`, `/retry`, `/ml_report`) или да започна стандартния процес по **Етап 0** след получаване на прикачен файл с търговска стратегия.  
+
+Вашата заявка `Write python:hello.py with print(1)` не отговаря на нито едно от тези условия.  
+
+Моля, прикач
+
+## 2026-07-01 (Run 9fe67cd4)
+- Agent: llm
+- Input: You must create a file. Write ```python:hello.py``` with print("hello world"). Just the code, nothing else.
+- Output: I am currently executing the **forex-mt5-bot** skill, which is strictly specialized in building modular MetaTrader 5 trading bots step‑by‑step from an attached strategy file.  
+
+Your request to write `hello.py` does **not** match any of the allowed interactive commands (`/plan`, `/next`, `/fix`, `/explain`, `/audit`, `/status`, `/retry`, `/ml_report`) and falls outside the skill’s scope.  
+
+To proceed with this skill, please attach a **file with your trading strategy/rules** so I can begin **Sta
+
+## 2026-07-01 (Run 75b98b7d)
+- Agent: llm
+- Input: Output a simple file. ```python:hi.py``` print("hi")
+- Output: I am currently executing the **forex‑mt5‑bot** skill, which is strictly specialized in building modular MetaTrader 5 trading bots step‑by‑step from an attached strategy file.  
+
+Your request to output a simple `hi.py` file does **not** match any of the allowed interactive commands (`/plan`, `/next`, `/fix`, `/explain`, `/audit`, `/status`, `/retry`, `/ml_report`) and falls outside the skill’s scope.  
+
+To proceed with this skill, please attach a **file with your trading strategy/rules** so I can
