@@ -104,6 +104,7 @@ class BackupRestoreRequest(BaseModel):
 class ChatRequest(BaseModel):
     agent: str
     message: str
+    project: str = ""  # optional project folder to save generated files
 
 # ─── Helper Functions ─────────────────────────────────────────────
 
@@ -1827,12 +1828,33 @@ def chat(req: ChatRequest):
 
     response_text = execute_agent(agent, message)
 
+    # Auto-detect and save files from code blocks in chat response
+    files_created = []
+    project_dir = (req.project or "").strip()
+    if project_dir:
+        out_dir = Path(project_dir)
+        try:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            blocks = re.findall(r'```(\w+)?(?::(\S+\.\w+))?\s*\n(.*?)```', response_text, re.DOTALL)
+            for block in blocks:
+                try:
+                    if block[1]:
+                        fpath = out_dir / block[1]
+                        fpath.parent.mkdir(parents=True, exist_ok=True)
+                        fpath.write_text(block[2].strip())
+                        files_created.append(block[1])
+                except:
+                    pass
+        except:
+            pass
+
     agent_msg = {
         "id": str(uuid.uuid4())[:8],
         "role": "assistant",
         "agent": agent,
         "content": response_text,
         "timestamp": get_timestamp(),
+        "files_created": files_created if files_created else None,
     }
     save_chat_message(agent_msg)
 

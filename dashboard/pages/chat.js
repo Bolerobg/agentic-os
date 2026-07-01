@@ -207,7 +207,35 @@ async function sendChatMessage() {
   const project = document.getElementById('projectPath')?.value?.trim() || '';
   const skill = document.getElementById('chatSkillSelect')?.value || '';
 
-  // If skill selected, route to skill execution
+  // Auto-detect build/create intent when project folder is set
+  var buildIntent = project && !skill && (message.indexOf('направи') !== -1 || message.indexOf('създай') !== -1 || message.indexOf('build') !== -1 || message.indexOf('create') !== -1 || message.indexOf('landing') !== -1 || message.indexOf('html') !== -1);
+  
+  if (buildIntent) {
+    input.value = '';
+    input.style.height = 'auto';
+    addChatMessage('user', message, agent);
+    var resultMsg = addChatMessage('assistant', '', agent + ' (building...)', true);
+    var resultEl = resultMsg ? resultMsg.element.querySelector('.chat-message-content') : null;
+    try {
+      var r = await fetch('/api/chat/llm', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          message: 'BUILD THIS: ' + message + '. Output COMPLETE code in blocks like this: \n```\nhtml:index.html\n(code here)\n```',
+          provider: agent === 'hermes' ? 'openrouter' : 'deepseek',
+          system: 'You are a professional developer. When asked to build something, output COMPLETE code with file paths in code blocks. Example: ```html:page.html``` or ```python:app.py```. Always use this format so files are auto-saved.'
+        })
+      }).then(function(resp) { return resp.json(); });
+      var code = r.response.content;
+      if (resultEl) resultEl.textContent = code.slice(0, 3000);
+    } catch (err) {
+      if (resultEl) resultEl.textContent = 'Error: ' + err.message;
+    }
+    if (resultEl) resultEl.classList.remove('streaming');
+    return;
+  }
+
+    // If skill selected, route to skill execution
   if (skill) {
     input.value = '';
     input.style.height = 'auto';
